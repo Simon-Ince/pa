@@ -3,25 +3,16 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PA COMMAND CENTER</title>
+<title>PA Command Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-<canvas id="bg-canvas"></canvas>
-<div class="grid-horizon"></div>
-<div class="flicker-light"></div>
-<div class="facet facet-1"></div>
-<div class="facet facet-2"></div>
-<div class="facet facet-3"></div>
-<div class="scanlines"></div>
-<div class="noise-overlay"></div>
-
 <div class="wrap">
   <header class="banner">
-    <h1 class="wordmark">PA COMMAND CENTER</h1>
+    <h1 class="wordmark">PA Command Center</h1>
     <div class="banner-right">
       <div id="clock" class="clock">--:--:--</div>
       <div class="conn-status">
@@ -33,35 +24,29 @@
 
   <main class="main-stack">
     <section class="panel panel-focus">
-      <h2 class="panel-title">FOCUS</h2>
+      <h2 class="panel-title">Focus</h2>
       <div id="focus-status" class="panel-substatus"></div>
-      <div id="focus-list" class="focus-list scroll"></div>
+      <div id="focus-list" class="focus-list"></div>
     </section>
 
-    <div class="grid">
+    <div class="grid-row">
       <section class="panel panel-calendar">
-        <h2 class="panel-title">TODAY / TOMORROW</h2>
+        <h2 class="panel-title">Today / Tomorrow</h2>
         <div id="calendar-status" class="panel-substatus"></div>
         <div id="calendar-list" class="panel-list scroll"></div>
       </section>
 
-      <section class="panel panel-signal">
-        <h2 class="panel-title">SIGNAL</h2>
-        <div id="signal-status" class="panel-substatus"></div>
-        <div id="signal-count" class="signal-count"></div>
-        <div id="signal-list" class="panel-list scroll"></div>
-      </section>
-
       <section class="panel panel-tasks">
-        <h2 class="panel-title">TASKS</h2>
+        <h2 class="panel-title">Tasks</h2>
         <div id="tasks-status" class="panel-substatus"></div>
         <div id="tasks-list" class="panel-list scroll"></div>
       </section>
 
-      <section class="panel panel-loops">
-        <h2 class="panel-title">OPEN LOOPS</h2>
-        <div id="loops-status" class="panel-substatus"></div>
-        <div id="loops-list" class="panel-list scroll"></div>
+      <section class="panel panel-signal">
+        <h2 class="panel-title">Signal</h2>
+        <div id="signal-status" class="panel-substatus"></div>
+        <div id="signal-count" class="signal-count"></div>
+        <div id="signal-list" class="panel-list scroll"></div>
       </section>
     </div>
   </main>
@@ -69,7 +54,6 @@
   <footer class="statusbar">
     <span id="footer-gmail">inbox: --</span>
     <span id="footer-calendar">calendar: --</span>
-    <span id="footer-loops">loops: --</span>
     <span id="footer-triage">triage: --</span>
     <span id="footer-tasks">tasks: --</span>
     <span id="footer-reconnect" class="reconnect-flag hidden">RECONNECTING…</span>

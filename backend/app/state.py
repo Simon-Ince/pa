@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import focus as focus_module
-from . import ticktick_client, weekly_notes
+from . import ticktick_client
 from .google_client import (
     CredentialsHolder,
     GoogleAuthError,
@@ -21,13 +21,11 @@ logger = logging.getLogger("pa.state")
 
 GMAIL_POLL_SECONDS = 50
 CALENDAR_POLL_SECONDS = 60
-WEEKLY_NOTES_POLL_SECONDS = 120
 TRIAGE_POLL_SECONDS = 90
 TICKTICK_POLL_SECONDS = 150
 FOCUS_POLL_SECONDS = 20
 HEARTBEAT_SECONDS = 25
 
-VAULT_DIR = os.environ.get("VAULT_WEEKLY_NOTES_DIR", "/vault/Weekly Notes")
 TRIAGE_DATA_DIR = os.environ.get("TRIAGE_DATA_DIR", "/data")
 
 LOCAL_TZ = ZoneInfo("Europe/London")
@@ -55,13 +53,6 @@ class AppState:
                 "last_updated": None,
             },
             "calendar": {"status": "pending", "items": [], "last_updated": None},
-            "weekly_notes": {
-                "status": "pending",
-                "note_file": None,
-                "week_start": None,
-                "days": {d: [] for d in weekly_notes.DAY_NAMES},
-                "last_updated": None,
-            },
             "triage": {"status": "pending", "last_updated": None},
             "ticktick": {"status": "pending", "items": [], "last_updated": None},
             "focus": {"status": "pending", "items": [], "last_updated": None},
@@ -154,42 +145,6 @@ async def calendar_loop(state: AppState, creds_holder: CredentialsHolder):
         await asyncio.sleep(CALENDAR_POLL_SECONDS)
 
 
-async def weekly_notes_loop(state: AppState):
-    while True:
-        try:
-            path, monday = await asyncio.to_thread(weekly_notes.find_current_week_note, VAULT_DIR)
-            if path:
-                days = await asyncio.to_thread(weekly_notes.parse_open_items, path)
-                await state.update(
-                    "weekly_notes",
-                    {
-                        "status": "ok",
-                        "note_file": os.path.basename(path),
-                        "week_start": monday.isoformat(),
-                        "days": days,
-                        "last_updated": now_iso(),
-                    },
-                )
-            else:
-                await state.update(
-                    "weekly_notes",
-                    {
-                        "status": "not_found",
-                        "note_file": None,
-                        "week_start": monday.isoformat(),
-                        "days": {d: [] for d in weekly_notes.DAY_NAMES},
-                        "last_updated": now_iso(),
-                    },
-                )
-        except Exception as e:
-            logger.exception("weekly notes parse failed")
-            await state.update(
-                "weekly_notes",
-                {"status": "error", "error": str(e), "days": {d: [] for d in weekly_notes.DAY_NAMES}, "last_updated": now_iso()},
-            )
-        await asyncio.sleep(WEEKLY_NOTES_POLL_SECONDS)
-
-
 def _parse_generated_at(generated_at: str | None) -> datetime | None:
     if not generated_at:
         return None
@@ -277,7 +232,6 @@ async def focus_loop(state: AppState):
                 triage=snap.get("triage"),
                 calendar=snap.get("calendar"),
                 ticktick=snap.get("ticktick"),
-                weekly_notes=snap.get("weekly_notes"),
                 now=now,
                 tz=LOCAL_TZ,
             )

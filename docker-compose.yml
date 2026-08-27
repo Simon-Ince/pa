@@ -7,14 +7,12 @@ services:
     volumes:
       - "${GOOGLE_TOKEN_PATH:-/Users/simonince/.hermes/profiles/pa/google_token.json}:/secrets/google_token.json:ro"
       - "${GOOGLE_CLIENT_SECRET_PATH:-/Users/simonince/.hermes/profiles/pa/google_client_secret.json}:/secrets/google_client_secret.json:ro"
-      - "${VAULT_WEEKLY_NOTES_PATH:-/Users/simonince/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Weekly Notes}:/vault/Weekly Notes:ro"
       - "${DASHBOARD_DATA_PATH:-/Users/simonince/.hermes/profiles/pa/dashboard_data}:/data:ro"
       - "${TICKTICK_TOKEN_PATH:-/Users/simonince/.hermes/profiles/pa/ticktick_token.json}:/secrets/ticktick_token.json:ro"
     environment:
       - TZ=Europe/London
       - GOOGLE_TOKEN_FILE=/secrets/google_token.json
       - GOOGLE_CLIENT_SECRET_FILE=/secrets/google_client_secret.json
-      - VAULT_WEEKLY_NOTES_DIR=/vault/Weekly Notes
       - TRIAGE_DATA_DIR=/data
       - TICKTICK_TOKEN_FILE=/secrets/ticktick_token.json
     restart: unless-stopped

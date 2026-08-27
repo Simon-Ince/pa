@@ -8,15 +8,12 @@ Rank order (highest first), capped at MAX_ITEMS, deduped by lowercased text:
   2. calendar meetings starting within MEETING_SOON_MINUTES
   3. overdue TickTick tasks
   4. TickTick tasks due today
-  5. open weekly-note checkboxes under *today's* day heading only
-  6. triage items flagged as needing a reply
+  5. triage items flagged as needing a reply
 """
 from datetime import datetime, timezone
 
 MAX_ITEMS = 5
 MEETING_SOON_MINUTES = 60
-
-DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
 def _parse_iso(value):
@@ -32,7 +29,7 @@ def _parse_iso(value):
         return None
 
 
-def compute_focus(triage: dict, calendar: dict, ticktick: dict, weekly_notes: dict, now: datetime, tz) -> list[dict]:
+def compute_focus(triage: dict, calendar: dict, ticktick: dict, now: datetime, tz) -> list[dict]:
     items: list[dict] = []
     seen: set[str] = set()
 
@@ -46,7 +43,6 @@ def compute_focus(triage: dict, calendar: dict, ticktick: dict, weekly_notes: di
     triage_items = (triage or {}).get("items") or []
     calendar_items = (calendar or {}).get("items") or []
     ticktick_items = (ticktick or {}).get("items") or []
-    days = (weekly_notes or {}).get("days") or {}
 
     # 1. urgent triage items
     for it in triage_items:
@@ -90,12 +86,7 @@ def compute_focus(triage: dict, calendar: dict, ticktick: dict, weekly_notes: di
     for t in due_today:
         add(t.get("title", ""), "TASK", detail="due today", link=t.get("link"))
 
-    # 5. today's open weekly-note items
-    today_name = DAY_NAMES[now.astimezone(tz).weekday()]
-    for text in days.get(today_name, []) or []:
-        add(text, "NOTES")
-
-    # 6. reply-needed triage items
+    # 5. reply-needed triage items
     for it in triage_items:
         if it.get("urgency") == "reply":
             add(it.get("summary", ""), "SIGNAL", detail=it.get("source"), link=it.get("link"))

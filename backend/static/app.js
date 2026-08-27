@@ -1,81 +1,5 @@
-/* PA Command Center — vanilla JS frontend: ambient dust/wireframe canvas,
- * SSE state sync, live clock + countdown ticking, panel rendering. */
-
-(function ambientScene() {
-  const canvas = document.getElementById("bg-canvas");
-  const ctx = canvas.getContext("2d");
-  let motes = [];
-  let facets = [];
-
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    const count = Math.floor((canvas.width * canvas.height) / 16000);
-    motes = Array.from({ length: count }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: Math.random() * 1.1 + 0.3,
-      speed: Math.random() * 0.06 + 0.01,
-      drift: (Math.random() - 0.5) * 0.05,
-      twinkle: Math.random() * Math.PI * 2,
-    }));
-    facets = Array.from({ length: 3 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      size: Math.random() * 70 + 60,
-      angle: Math.random() * Math.PI * 2,
-      spin: (Math.random() - 0.5) * 0.0006,
-    }));
-  }
-
-  function drawFacet(f) {
-    ctx.save();
-    ctx.translate(f.x, f.y);
-    ctx.rotate(f.angle);
-    ctx.strokeStyle = "rgba(124, 141, 153, 0.14)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const sides = 3;
-    for (let i = 0; i <= sides; i++) {
-      const a = (i / sides) * Math.PI * 2;
-      const px = Math.cos(a) * f.size;
-      const py = Math.sin(a) * f.size * 0.8;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function frame() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (const f of facets) {
-      f.angle += f.spin;
-      drawFacet(f);
-    }
-
-    for (const m of motes) {
-      m.twinkle += 0.015;
-      const alpha = 0.15 + Math.abs(Math.sin(m.twinkle)) * 0.25;
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(159, 178, 186, ${alpha})`;
-      ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
-      ctx.fill();
-      m.y += m.speed;
-      m.x += m.drift;
-      if (m.y > canvas.height) {
-        m.y = 0;
-        m.x = Math.random() * canvas.width;
-      }
-    }
-    requestAnimationFrame(frame);
-  }
-
-  window.addEventListener("resize", resize);
-  resize();
-  frame();
-})();
+/* PA Command Center — vanilla JS frontend: SSE state sync, live clock +
+ * countdown ticking, panel rendering. */
 
 function fmtClock(d) {
   return d.toLocaleTimeString([], { hour12: false });
@@ -190,7 +114,7 @@ function renderSignal(gmail, triage) {
           ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.summary || "")}</a>`
           : escapeHtml(it.summary || "");
         return `
-      <div class="triage-item urgency-${escapeHtml(urgency)}">
+      <div class="triage-item enter urgency-${escapeHtml(urgency)}">
         <div class="triage-source">${escapeHtml(it.source || "")}${urgency ? " · " + escapeHtml(urgency) : ""}</div>
         ${body}
       </div>`;
@@ -234,7 +158,7 @@ function renderTasks(ticktick) {
         ? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener">${escapeHtml(t.title)}</a>`
         : escapeHtml(t.title);
       return `
-      <div class="task-row ${overdueClass}">
+      <div class="task-row enter ${overdueClass}">
         <div class="task-title">${titleHtml}</div>
         <div class="task-meta">${escapeHtml(t.project || "")} ${due} ${priority}</div>
       </div>`;
@@ -242,7 +166,7 @@ function renderTasks(ticktick) {
     .join("");
 }
 
-const FOCUS_TAG_CLASS = { SIGNAL: "tag-signal", MEETING: "tag-meeting", TASK: "tag-task", NOTES: "tag-notes" };
+const FOCUS_TAG_CLASS = { SIGNAL: "tag-signal", MEETING: "tag-meeting", TASK: "tag-task" };
 
 function renderFocus(focus) {
   const statusEl = document.getElementById("focus-status");
@@ -270,7 +194,7 @@ function renderFocus(focus) {
         ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener" class="focus-text">${escapeHtml(it.text)}</a>`
         : `<span class="focus-text">${escapeHtml(it.text)}</span>`;
       return `
-      <div class="focus-item">
+      <div class="focus-item enter">
         <span class="focus-tag ${tagClass}">${escapeHtml(it.source)}</span>
         ${body}
         ${it.detail ? `<span class="focus-detail">${escapeHtml(it.detail)}</span>` : ""}
@@ -306,7 +230,7 @@ function renderCalendar(calendar) {
     .map((e, i) => {
       const link = e.meet_link || e.html_link;
       return `
-      <div class="event-row ${i === nextIdx ? "next-up" : ""}" data-start="${escapeHtml(e.start || "")}" data-allday="${e.all_day}">
+      <div class="event-row enter ${i === nextIdx ? "next-up" : ""}" data-start="${escapeHtml(e.start || "")}" data-allday="${e.all_day}">
         <span class="event-countdown" data-countdown></span>
         <div class="event-time">${fmtEventTime(e.start, e.all_day)}</div>
         <div class="event-title">${escapeHtml(e.title)}</div>
@@ -330,59 +254,12 @@ function tickCountdowns() {
   });
 }
 
-const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-function renderLoops(wn) {
-  const statusEl = document.getElementById("loops-status");
-  const listEl = document.getElementById("loops-list");
-  const footer = document.getElementById("footer-loops");
-  footer.textContent = `loops: ${timeAgo(wn.last_updated)}`;
-
-  if (wn.status === "error") {
-    statusEl.textContent = "Weekly note error — " + (wn.error || "unknown error");
-    statusEl.classList.add("error");
-    listEl.innerHTML = "";
-    return;
-  }
-  statusEl.classList.remove("error");
-
-  if (wn.status === "not_found") {
-    statusEl.textContent = "no current-week note found";
-    listEl.innerHTML = `<div class="empty-state">No Weekly Note found for week starting ${escapeHtml(wn.week_start || "")}.</div>`;
-    return;
-  }
-  if (wn.status === "pending") {
-    statusEl.textContent = "loading…";
-    listEl.innerHTML = "";
-    return;
-  }
-
-  const totalOpen = DAY_ORDER.reduce((n, d) => n + ((wn.days && wn.days[d]) || []).length, 0);
-  statusEl.textContent = `${wn.note_file} · ${totalOpen} open`;
-
-  if (totalOpen === 0) {
-    listEl.innerHTML = `<div class="empty-state">No open items this week. Clean slate.</div>`;
-    return;
-  }
-
-  listEl.innerHTML = DAY_ORDER.map((day) => {
-    const items = (wn.days && wn.days[day]) || [];
-    if (items.length === 0) return "";
-    return `
-      <div class="day-group">
-        <div class="day-heading">${day}</div>
-        ${items.map((it) => `<div class="loop-item"><span class="loop-checkbox">[ ]</span><span>${escapeHtml(it)}</span></div>`).join("")}
-      </div>`;
-  }).join("");
-}
-
 function render(state) {
   latestState = state;
   if (state.focus) renderFocus(state.focus);
   if (state.gmail) renderSignal(state.gmail, state.triage || { status: "pending" });
   if (state.calendar) renderCalendar(state.calendar);
   if (state.ticktick) renderTasks(state.ticktick);
-  if (state.weekly_notes) renderLoops(state.weekly_notes);
 }
 
 setInterval(tickCountdowns, 1000);

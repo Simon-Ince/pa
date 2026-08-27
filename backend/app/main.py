@@ -17,7 +17,6 @@ from .state import (
     gmail_loop,
     ticktick_loop,
     triage_loop,
-    weekly_notes_loop,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -34,7 +33,6 @@ _background_tasks: list[asyncio.Task] = []
 async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.create_task(gmail_loop(state, creds_holder)))
     _background_tasks.append(asyncio.create_task(calendar_loop(state, creds_holder)))
-    _background_tasks.append(asyncio.create_task(weekly_notes_loop(state)))
     _background_tasks.append(asyncio.create_task(triage_loop(state)))
     _background_tasks.append(asyncio.create_task(ticktick_loop(state)))
     _background_tasks.append(asyncio.create_task(focus_loop(state)))

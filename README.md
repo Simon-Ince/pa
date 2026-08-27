@@ -1,9 +1,9 @@
 # PA Command Center
 
 A self-hosted, always-on personal dashboard for Simon. One FastAPI service
-serves both the API and a plain HTML/CSS/JS "low-poly Y2K cyber-noir"
-frontend, pulling from Gmail, Google Calendar, an Obsidian weekly-notes
-vault, a message-triage cron snapshot, and TickTick.
+serves both the API and a plain HTML/CSS/JS frontend — clean, bold,
+pastel-on-white, thick-outlined panel design (v3) — pulling from Gmail,
+Google Calendar, a message-triage cron snapshot, and TickTick.
 
 ## Run it
 
@@ -28,46 +28,87 @@ docker compose logs -f
 
 ## What each panel shows
 
-- **FOCUS** — full-width panel at the top, the "what should I actually look
-  at right now" list. Computed server-side every ~20s by a plain heuristic
-  in `backend/app/focus.py` (no LLM call — deliberately kept inspectable).
-  It combines the other four sources into a single ranked list, capped at 5
+- **FOCUS** — full-width hero strip at the top, the "what should I actually
+  look at right now" list, given room to breathe rather than a cramped box.
+  Computed server-side every ~20s by a plain heuristic in
+  `backend/app/focus.py` (no LLM call — deliberately kept inspectable). It
+  combines the other three sources into a single ranked list, capped at 5
   items, deduped by text, ranked in this order (highest priority first):
   1. triage items flagged `urgent`
   2. calendar meetings starting within the next 60 minutes
   3. overdue TickTick tasks
   4. TickTick tasks due today
-  5. open weekly-note checkboxes under *today's* day heading only
-  6. triage items flagged as needing a `reply`
+  5. triage items flagged as needing a `reply`
   Each item is tagged with the source it came from (`SIGNAL` / `MEETING` /
-  `TASK` / `NOTES`) so it's traceable back to the panel it was derived from.
-  If nothing qualifies it shows "Nothing urgent — clear to focus" rather
-  than an empty box.
+  `TASK`) so it's traceable back to the panel it was derived from — the tag
+  colour matches that panel's accent colour. If nothing qualifies it shows
+  "Nothing urgent — clear to focus" rather than an empty box.
 - **TODAY / TOMORROW** — Calendar events from now through the end of
   tomorrow, with all-day "working location" markers filtered out (see
   below). Shows time, title, location/meet link, and a live "starts in
   Xm" countdown that ticks client-side. The next upcoming event is
   highlighted. Polled every ~60s.
-- **SIGNAL** — replaces the old raw unread-Gmail list. Shows a prominent
-  live unread count (`is:unread newer_than:3d -category:promotions
-  -category:social` against the primary inbox, cheap `resultSizeEstimate`
-  call — no per-message fetch), and below it the items the existing "Simon
-  message triage" cron judged worth surfacing, read from its JSON snapshot
-  (see contract below). Each item shows its source (`gmail`/`chat`/etc) and
-  urgency; `urgent` items get a brighter amber treatment. If the snapshot
-  is more than ~7 hours old *and* it's currently a weekday between 8am and
-  6pm, a "STALE" flag appears next to it (the data itself is still shown,
-  never hidden).
+- **SIGNAL** — shows a prominent live unread count (`is:unread
+  newer_than:3d -category:promotions -category:social` against the primary
+  inbox, cheap `resultSizeEstimate` call — no per-message fetch), and below
+  it the items the existing "Simon message triage" cron judged worth
+  surfacing, read from its JSON snapshot (see contract below). Each item
+  shows its source (`gmail`/`chat`/etc) and urgency; `urgent` items get a
+  brighter amber treatment. If the snapshot is more than ~7 hours old *and*
+  it's currently a weekday between 8am and 6pm, a "STALE" flag appears next
+  to it (the data itself is still shown, never hidden).
 - **TASKS** — Simon's incomplete TickTick to-dos. See the TickTick section
   below for the data contract and one non-obvious API quirk. Polled every
   ~2.5 minutes (no need for SSE-fast refresh on todos).
-- **OPEN LOOPS** — unchecked `- [ ]` items from the current week's Obsidian
-  Weekly Note (`Weekly Notes DD-MM-YY.md`, Monday of the current week),
-  grouped under the Monday–Friday heading they fall under. Re-parsed every
-  ~2 minutes. Unchanged from v1.
+
+Below FOCUS, the three panels sit in a 12-column grid sized to their real
+content volume rather than uniform equal boxes: CALENDAR (narrower,
+timeline-shaped, ~6 items) spans 4 columns, TASKS (up to 15 items) spans 5,
+SIGNAL (up to 8 items) spans 3. Panels scroll internally only if content
+genuinely exceeds the available height.
 
 Footer shows a per-source "last updated" time and an amber "RECONNECTING…"
 flag if the SSE connection drops (`EventSource` auto-reconnects).
+
+## v3: OPEN LOOPS panel removed
+
+The Weekly Notes / OPEN LOOPS panel (unchecked `- [ ]` items from the
+current week's Obsidian Weekly Note) has been removed entirely — Simon
+uses TickTick as his real task system now, and the panel was redundant.
+This removed the `weekly_notes` backend polling loop, the `weekly_notes`
+key from `/api/state`, `backend/app/weekly_notes.py`, and the Obsidian
+vault read-only bind mount + `VAULT_WEEKLY_NOTES_PATH`/`VAULT_WEEKLY_NOTES_DIR`
+env vars from `docker-compose.yml`/`.env.example` (nothing else needed the
+vault mount). FOCUS's "today's open weekly-note items" ranking tier was
+dropped along with it — the ranking list above reflects the current
+(5-tier) order.
+
+## v3: visual redesign
+
+The old "low-poly Y2K cyber-noir / liminal gamecore" dark/glitch look
+(scanlines, noise, grain, ambient canvas dust/facets, pixel font) has been
+replaced with a clean, bold, pastel design:
+
+- **Base**: near-white/cream canvas (`#faf7f1`) with near-black ink
+  (`#221f1b`) text, thick 3px black borders as the core structural motif
+  (panels, header/footer dividers) instead of drop shadows or glow.
+  Rounded corners throughout (22px panels, 14px row cards, pill-shaped
+  tags/badges) — consistent, no mixing with sharp corners.
+- **Type**: Space Grotesk (bold, geometric) for headings/labels/numbers,
+  Inter for body text — replacing "Press Start 2P" + "JetBrains Mono".
+- **One pastel accent per panel**, wash fill + deeper accent tone for text/
+  borders/tags:
+  - FOCUS — sky-blue (`#dcedfc` wash / `#1c6fb0` deep)
+  - CALENDAR — mint (`#d9f2e3` wash / `#1f8a5f` deep)
+  - TASKS — peach (`#ffe4d1` wash / `#c9642c` deep)
+  - SIGNAL — lavender (`#e9e0fb` wash / `#6a4fc4` deep)
+  - Status accents: butter-amber (`#fff3c4` / `#a97b0a`) for urgent/stale
+    flags and the live connection dot; coral (`#ffe1de` / `#c9433a`) for
+    overdue tasks/errors.
+- **Micro-animations, not atmosphere**: the ambient canvas (drifting dust
+  motes, wireframe facets), scanline/noise overlays, and flickering-light
+  divs are gone. In their place: a soft pulse on the live connection dot,
+  and a short fade/slide-in on newly rendered list rows.
 
 ## Calendar filter behavior
 
@@ -153,7 +194,6 @@ Read-only bind mounts only — nothing is copied into the image or committed:
 - `google_token.json`, `google_client_secret.json` — Simon's existing
   Google OAuth token (already has a `refresh_token`; the backend loads and
   auto-refreshes it via `google-auth`, it never runs an OAuth flow).
-- Obsidian vault `Weekly Notes` folder.
 - `dashboard_data` folder (triage snapshot).
 - `ticktick_token.json` — TickTick personal access token, read-only.
 
