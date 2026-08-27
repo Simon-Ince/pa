@@ -1,0 +1,24 @@
+services:
+  dashboard:
+    build: ./backend
+    container_name: pa-dashboard
+    ports:
+      - "${HOST_PORT:-8420}:8000"
+    volumes:
+      - "${GOOGLE_TOKEN_PATH:-/Users/simonince/.hermes/profiles/pa/google_token.json}:/secrets/google_token.json:ro"
+      - "${GOOGLE_CLIENT_SECRET_PATH:-/Users/simonince/.hermes/profiles/pa/google_client_secret.json}:/secrets/google_client_secret.json:ro"
+      - "${VAULT_WEEKLY_NOTES_PATH:-/Users/simonince/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault/Weekly Notes}:/vault/Weekly Notes:ro"
+      - "${DASHBOARD_DATA_PATH:-/Users/simonince/.hermes/profiles/pa/dashboard_data}:/data:ro"
+    environment:
+      - TZ=Europe/London
+      - GOOGLE_TOKEN_FILE=/secrets/google_token.json
+      - GOOGLE_CLIENT_SECRET_FILE=/secrets/google_client_secret.json
+      - VAULT_WEEKLY_NOTES_DIR=/vault/Weekly Notes
+      - TRIAGE_DATA_DIR=/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

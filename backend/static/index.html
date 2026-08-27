@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PA COMMAND CENTER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="grid-horizon"></div>
+<div class="sun"></div>
+
+<div class="wrap">
+  <header class="banner">
+    <h1 class="wordmark">PA COMMAND CENTER</h1>
+    <div class="banner-right">
+      <div id="clock" class="clock">--:--:--</div>
+      <div class="conn-status">
+        <span id="conn-dot" class="dot amber"></span>
+        <span id="conn-label">connecting</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel panel-inbox">
+      <h2 class="panel-title">INBOX QUEUE</h2>
+      <div id="gmail-status" class="panel-substatus"></div>
+      <div id="gmail-list" class="panel-list scroll"></div>
+    </section>
+
+    <section class="panel panel-calendar">
+      <h2 class="panel-title">TODAY / TOMORROW</h2>
+      <div id="calendar-status" class="panel-substatus"></div>
+      <div id="calendar-list" class="panel-list scroll"></div>
+    </section>
+
+    <section class="panel panel-loops">
+      <h2 class="panel-title">OPEN LOOPS</h2>
+      <div id="loops-status" class="panel-substatus"></div>
+      <div id="loops-list" class="panel-list scroll"></div>
+    </section>
+
+    <section class="panel panel-triage">
+      <h2 class="panel-title">LAST TRIAGE RUN</h2>
+      <div id="triage-status" class="panel-substatus"></div>
+      <div id="triage-list" class="panel-list scroll"></div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="footer-gmail">inbox: --</span>
+    <span id="footer-calendar">calendar: --</span>
+    <span id="footer-loops">loops: --</span>
+    <span id="footer-triage">triage: --</span>
+    <span id="footer-reconnect" class="reconnect-flag hidden">RECONNECTING…</span>
+  </footer>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
