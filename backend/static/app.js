@@ -144,8 +144,21 @@ function renderSignal(gmail, triage) {
     countEl.textContent = "--";
   } else {
     statusEl.classList.remove("error");
-    statusEl.textContent = gmail.status === "pending" ? "loading…" : "untriaged / unread";
-    countEl.textContent = gmail.status === "pending" ? "--" : String(gmail.unread_count ?? 0);
+    const windowLabel =
+      gmail.count_window === "since_last_triage"
+        ? "since last triage"
+        : gmail.count_window === "fallback_3d"
+        ? "last 3 days (fallback)"
+        : "";
+    statusEl.textContent =
+      gmail.status === "pending" ? "loading…" : `untriaged / unread — ${windowLabel}`;
+    if (gmail.status === "pending" || !gmail.query) {
+      countEl.textContent = gmail.status === "pending" ? "--" : String(gmail.unread_count ?? 0);
+    } else {
+      const encodedQuery = encodeURIComponent(gmail.query).replace(/%20/g, "+");
+      const gmailUrl = `https://mail.google.com/mail/u/0/#search/${encodedQuery}`;
+      countEl.innerHTML = `<a href="${escapeHtml(gmailUrl)}" target="_blank" rel="noopener">${String(gmail.unread_count ?? 0)}</a>`;
+    }
   }
 
   if (triage.status === "error") {

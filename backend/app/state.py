@@ -47,7 +47,13 @@ def _empty_section(status: str) -> dict:
 class AppState:
     def __init__(self):
         self.data = {
-            "gmail": {"status": "pending", "unread_count": None, "last_updated": None},
+            "gmail": {
+                "status": "pending",
+                "unread_count": None,
+                "count_window": None,
+                "query": None,
+                "last_updated": None,
+            },
             "calendar": {"status": "pending", "items": [], "last_updated": None},
             "weekly_notes": {
                 "status": "pending",
@@ -94,9 +100,21 @@ async def gmail_loop(state: AppState, creds_holder: CredentialsHolder):
     while True:
         try:
             creds = await asyncio.to_thread(creds_holder.get)
-            count = await asyncio.to_thread(fetch_gmail_unread_count, creds)
+            triage = (await state.snapshot_dict()).get("triage") or {}
+            gen = _parse_generated_at(triage.get("generated_at"))
+            since_epoch = int(gen.timestamp()) if gen is not None else None
+            count, query, count_window = await asyncio.to_thread(
+                fetch_gmail_unread_count, creds, since_epoch
+            )
             await state.update(
-                "gmail", {"status": "ok", "unread_count": count, "last_updated": now_iso()}
+                "gmail",
+                {
+                    "status": "ok",
+                    "unread_count": count,
+                    "count_window": count_window,
+                    "query": query,
+                    "last_updated": now_iso(),
+                },
             )
         except GoogleAuthError as e:
             logger.error("gmail auth error: %s", e)
@@ -172,17 +190,23 @@ async def weekly_notes_loop(state: AppState):
         await asyncio.sleep(WEEKLY_NOTES_POLL_SECONDS)
 
 
+def _parse_generated_at(generated_at: str | None) -> datetime | None:
+    if not generated_at:
+        return None
+    try:
+        v = generated_at[:-1] + "+00:00" if generated_at.endswith("Z") else generated_at
+        return datetime.fromisoformat(v)
+    except ValueError:
+        return None
+
+
 def _is_triage_stale(generated_at: str | None) -> bool:
     """Stale = the snapshot is older than TRIAGE_STALE_HOURS *and* it's
     currently within weekday work hours (no point flagging staleness at
     2am — nothing's happened since the last run anyway).
     """
-    if not generated_at:
-        return False
-    try:
-        v = generated_at[:-1] + "+00:00" if generated_at.endswith("Z") else generated_at
-        gen = datetime.fromisoformat(v)
-    except ValueError:
+    gen = _parse_generated_at(generated_at)
+    if gen is None:
         return False
     now = datetime.now(timezone.utc)
     age_hours = (now - gen).total_seconds() / 3600

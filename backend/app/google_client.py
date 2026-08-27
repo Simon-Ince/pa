@@ -19,7 +19,8 @@ logger = logging.getLogger("pa.google")
 TOKEN_FILE = os.environ.get("GOOGLE_TOKEN_FILE", "/secrets/google_token.json")
 
 # Scopes required for this dashboard's read-only usage.
-GMAIL_LIST_QUERY = "is:unread newer_than:3d -category:promotions -category:social"
+GMAIL_CATEGORY_EXCLUSIONS = "-category:promotions -category:social"
+GMAIL_FALLBACK_QUERY = f"is:unread newer_than:3d {GMAIL_CATEGORY_EXCLUSIONS}"
 
 
 class GoogleAuthError(Exception):
@@ -74,25 +75,46 @@ class CredentialsHolder:
         return creds
 
 
-def fetch_gmail_unread_count(creds: Credentials) -> int:
-    """Cheap unread count for the same query the old full-list panel used —
-    a single list call capped to 1 result, reading resultSizeEstimate rather
-    than paging through and fetching every message's metadata.
+def build_gmail_unread_query(since_epoch: int | None) -> tuple[str, str]:
+    """Builds the unread-count query and reports which window it covers.
+
+    Prefers counting unread mail received since the last triage run
+    (since_epoch, from the triage snapshot's generated_at) so the SIGNAL
+    panel reflects "what's new since triage" rather than Simon's full
+    ~31k-unread backlog. Falls back to a fixed 3-day window when no triage
+    timestamp is available.
     """
+    if since_epoch is not None:
+        return f"is:unread after:{since_epoch} {GMAIL_CATEGORY_EXCLUSIONS}", "since_last_triage"
+    return GMAIL_FALLBACK_QUERY, "fallback_3d"
+
+
+def fetch_gmail_unread_count(
+    creds: Credentials, since_epoch: int | None = None
+) -> tuple[int, str, str]:
+    """Cheap unread count for the SIGNAL panel — a single list call capped to
+    1 result, reading resultSizeEstimate rather than paging through and
+    fetching every message's metadata.
+
+    Returns (count, query, count_window) so the caller/frontend can display
+    and link to the exact query used.
+    """
+    query, count_window = build_gmail_unread_query(since_epoch)
     service = build("gmail", "v1", credentials=creds, cache_discovery=False)
     resp = (
         service.users()
         .messages()
         .list(
             userId="me",
-            q=GMAIL_LIST_QUERY,
+            q=query,
             maxResults=1,
             labelIds=["INBOX"],
             fields="resultSizeEstimate",
         )
         .execute()
     )
-    return int(resp.get("resultSizeEstimate", 0) or 0)
+    count = int(resp.get("resultSizeEstimate", 0) or 0)
+    return count, query, count_window
 
 
 def fetch_calendar_events(creds: Credentials, tz_name: str = "Europe/London") -> list[dict]:

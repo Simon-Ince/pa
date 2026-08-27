@@ -440,6 +440,15 @@ html, body {
   color: var(--amber);
   margin: 2px 0 10px;
 }
+
+.signal-count a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.signal-count a:hover {
+  text-decoration: underline;
+}
 .triage-meta {
   font-size: 0.78rem;
   color: var(--text-dim);
