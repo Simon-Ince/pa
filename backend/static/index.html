@@ -31,30 +31,39 @@
     </div>
   </header>
 
-  <main class="grid">
-    <section class="panel panel-inbox">
-      <h2 class="panel-title">INBOX QUEUE</h2>
-      <div id="gmail-status" class="panel-substatus"></div>
-      <div id="gmail-list" class="panel-list scroll"></div>
+  <main class="main-stack">
+    <section class="panel panel-focus">
+      <h2 class="panel-title">FOCUS</h2>
+      <div id="focus-status" class="panel-substatus"></div>
+      <div id="focus-list" class="focus-list scroll"></div>
     </section>
 
-    <section class="panel panel-calendar">
-      <h2 class="panel-title">TODAY / TOMORROW</h2>
-      <div id="calendar-status" class="panel-substatus"></div>
-      <div id="calendar-list" class="panel-list scroll"></div>
-    </section>
+    <div class="grid">
+      <section class="panel panel-calendar">
+        <h2 class="panel-title">TODAY / TOMORROW</h2>
+        <div id="calendar-status" class="panel-substatus"></div>
+        <div id="calendar-list" class="panel-list scroll"></div>
+      </section>
 
-    <section class="panel panel-loops">
-      <h2 class="panel-title">OPEN LOOPS</h2>
-      <div id="loops-status" class="panel-substatus"></div>
-      <div id="loops-list" class="panel-list scroll"></div>
-    </section>
+      <section class="panel panel-signal">
+        <h2 class="panel-title">SIGNAL</h2>
+        <div id="signal-status" class="panel-substatus"></div>
+        <div id="signal-count" class="signal-count"></div>
+        <div id="signal-list" class="panel-list scroll"></div>
+      </section>
 
-    <section class="panel panel-triage">
-      <h2 class="panel-title">LAST TRIAGE RUN</h2>
-      <div id="triage-status" class="panel-substatus"></div>
-      <div id="triage-list" class="panel-list scroll"></div>
-    </section>
+      <section class="panel panel-tasks">
+        <h2 class="panel-title">TASKS</h2>
+        <div id="tasks-status" class="panel-substatus"></div>
+        <div id="tasks-list" class="panel-list scroll"></div>
+      </section>
+
+      <section class="panel panel-loops">
+        <h2 class="panel-title">OPEN LOOPS</h2>
+        <div id="loops-status" class="panel-substatus"></div>
+        <div id="loops-list" class="panel-list scroll"></div>
+      </section>
+    </div>
   </main>
 
   <footer class="statusbar">
@@ -62,6 +71,7 @@
     <span id="footer-calendar">calendar: --</span>
     <span id="footer-loops">loops: --</span>
     <span id="footer-triage">triage: --</span>
+    <span id="footer-tasks">tasks: --</span>
     <span id="footer-reconnect" class="reconnect-flag hidden">RECONNECTING…</span>
   </footer>
 </div>

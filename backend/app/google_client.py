@@ -26,6 +26,22 @@ class GoogleAuthError(Exception):
     pass
 
 
+# Google's Calendar API tags the auto-generated all-day Home/Office markers
+# from the "Working Locations" feature with eventType: "workingLocation"
+# (confirmed against Simon's real calendar 2026-08-27 — two "Home" all-day
+# entries both carried this field). Prefer that check; fall back to a
+# summary denylist in case older/edge-case entries lack the field.
+WORKING_LOCATION_EVENT_TYPE = "workingLocation"
+WORKING_LOCATION_SUMMARY_DENYLIST = {"home", "office", "working from home", "wfh"}
+
+
+def _is_working_location(event: dict) -> bool:
+    if event.get("eventType") == WORKING_LOCATION_EVENT_TYPE:
+        return True
+    summary = (event.get("summary") or "").strip().lower()
+    return summary in WORKING_LOCATION_SUMMARY_DENYLIST
+
+
 class CredentialsHolder:
     """Holds a single refreshable Credentials object, shared across polling loops."""
 
@@ -58,47 +74,25 @@ class CredentialsHolder:
         return creds
 
 
-def fetch_gmail_unread(creds: Credentials, max_results: int = 25) -> list[dict]:
+def fetch_gmail_unread_count(creds: Credentials) -> int:
+    """Cheap unread count for the same query the old full-list panel used —
+    a single list call capped to 1 result, reading resultSizeEstimate rather
+    than paging through and fetching every message's metadata.
+    """
     service = build("gmail", "v1", credentials=creds, cache_discovery=False)
     resp = (
         service.users()
         .messages()
-        .list(userId="me", q=GMAIL_LIST_QUERY, maxResults=max_results, labelIds=["INBOX"])
+        .list(
+            userId="me",
+            q=GMAIL_LIST_QUERY,
+            maxResults=1,
+            labelIds=["INBOX"],
+            fields="resultSizeEstimate",
+        )
         .execute()
     )
-    messages = resp.get("messages", [])
-    items = []
-    for m in messages:
-        msg = (
-            service.users()
-            .messages()
-            .get(
-                userId="me",
-                id=m["id"],
-                format="metadata",
-                metadataHeaders=["From", "Subject", "Date"],
-            )
-            .execute()
-        )
-        headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
-        internal_date_ms = int(msg.get("internalDate", "0") or "0")
-        received_at = (
-            datetime.fromtimestamp(internal_date_ms / 1000, tz=timezone.utc).isoformat()
-            if internal_date_ms
-            else None
-        )
-        items.append(
-            {
-                "id": m["id"],
-                "from": headers.get("From", "(unknown sender)"),
-                "subject": headers.get("Subject", "(no subject)"),
-                "snippet": msg.get("snippet", ""),
-                "received_at": received_at,
-                "link": f"https://mail.google.com/mail/u/0/#inbox/{m['id']}",
-            }
-        )
-    items.sort(key=lambda x: x["received_at"] or "", reverse=True)
-    return items
+    return int(resp.get("resultSizeEstimate", 0) or 0)
 
 
 def fetch_calendar_events(creds: Credentials, tz_name: str = "Europe/London") -> list[dict]:
@@ -125,6 +119,11 @@ def fetch_calendar_events(creds: Credentials, tz_name: str = "Europe/London") ->
     items = []
     for e in resp.get("items", []):
         if e.get("status") == "cancelled":
+            continue
+        # Filter out all-day working-location markers (Home/Office/etc) —
+        # they're not real meetings, just location noise. See
+        # _is_working_location() above for the detection logic/comment.
+        if _is_working_location(e):
             continue
         start = e.get("start", {})
         start_str = start.get("dateTime") or start.get("date")

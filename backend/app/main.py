@@ -10,7 +10,15 @@ from fastapi.staticfiles import StaticFiles
 
 from .google_client import CredentialsHolder
 from .sse import event_stream
-from .state import AppState, calendar_loop, gmail_loop, triage_loop, weekly_notes_loop
+from .state import (
+    AppState,
+    calendar_loop,
+    focus_loop,
+    gmail_loop,
+    ticktick_loop,
+    triage_loop,
+    weekly_notes_loop,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("pa.main")
@@ -28,6 +36,8 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.create_task(calendar_loop(state, creds_holder)))
     _background_tasks.append(asyncio.create_task(weekly_notes_loop(state)))
     _background_tasks.append(asyncio.create_task(triage_loop(state)))
+    _background_tasks.append(asyncio.create_task(ticktick_loop(state)))
+    _background_tasks.append(asyncio.create_task(focus_loop(state)))
     logger.info("started %d background polling loops", len(_background_tasks))
     yield
     for t in _background_tasks:

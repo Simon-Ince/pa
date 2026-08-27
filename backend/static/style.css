@@ -262,6 +262,19 @@ html, body {
   50% { opacity: 0.45; transform: scale(0.8); }
 }
 
+.main-stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel-focus {
+  flex: 0 0 auto;
+  max-height: 32vh;
+}
+
 .grid {
   flex: 1;
   min-height: 0;
@@ -292,6 +305,16 @@ html, body {
 
 .panel:hover {
   border-color: rgba(95, 168, 163, 0.5);
+}
+
+.panel-focus {
+  border-color: rgba(201, 161, 90, 0.4);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.35), 0 0 24px rgba(201, 161, 90, 0.06);
+}
+
+.panel-focus .panel-title {
+  color: var(--amber);
+  font-size: 0.8rem;
 }
 
 .panel-title {
@@ -352,41 +375,6 @@ html, body {
   padding: 10px 0;
 }
 
-/* Gmail rows */
-.mail-row {
-  display: block;
-  padding: 8px 10px;
-  border-left: 2px solid var(--teal);
-  background: rgba(95, 168, 163, 0.05);
-  text-decoration: none;
-  color: var(--text);
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.mail-row:hover {
-  background: rgba(95, 168, 163, 0.12);
-  border-color: var(--amber);
-}
-.mail-from {
-  font-size: 0.8rem;
-  color: var(--teal);
-}
-.mail-subject {
-  font-weight: bold;
-  margin: 2px 0;
-}
-.mail-snippet {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.mail-time {
-  font-size: 0.72rem;
-  color: var(--text-dim);
-  float: right;
-}
-
 /* Calendar rows */
 .event-row {
   padding: 8px 10px;
@@ -445,11 +433,24 @@ html, body {
   color: var(--sick-green);
 }
 
-/* Triage */
+/* Signal (untriaged count + triage-flagged items) */
+.signal-count {
+  font-family: var(--font-display), monospace;
+  font-size: 1.7rem;
+  color: var(--amber);
+  margin: 2px 0 10px;
+}
 .triage-meta {
   font-size: 0.78rem;
   color: var(--text-dim);
   margin-bottom: 6px;
+}
+.stale-flag {
+  color: var(--amber);
+  margin-left: 8px;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .triage-item {
   padding: 6px 10px;
@@ -457,10 +458,106 @@ html, body {
   background: rgba(139, 166, 103, 0.06);
   font-size: 0.86rem;
 }
+.triage-item a {
+  color: var(--text);
+}
 .triage-source {
   color: var(--sick-green);
   font-size: 0.72rem;
   text-transform: uppercase;
+}
+.triage-item.urgency-urgent {
+  border-left-color: var(--amber);
+  background: rgba(201, 161, 90, 0.1);
+}
+.triage-item.urgency-urgent .triage-source {
+  color: var(--amber);
+}
+
+/* Tasks (TickTick) */
+.task-row {
+  padding: 8px 10px;
+  border-left: 2px solid var(--slate);
+  background: rgba(124, 141, 153, 0.06);
+}
+.task-row.overdue {
+  border-left-color: var(--red);
+  background: rgba(181, 96, 92, 0.08);
+}
+.task-title {
+  font-weight: bold;
+}
+.task-title a {
+  color: var(--text);
+  text-decoration: none;
+}
+.task-title a:hover {
+  color: var(--amber);
+}
+.task-meta {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.task-due.overdue-text {
+  color: var(--red);
+}
+.task-priority {
+  color: var(--amber);
+}
+
+/* Focus */
+.focus-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.focus-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--amber);
+  background: rgba(201, 161, 90, 0.07);
+}
+.focus-tag {
+  font-family: var(--font-display), monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.03em;
+  padding: 3px 6px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.focus-tag.tag-signal {
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+.focus-tag.tag-meeting {
+  color: var(--amber);
+  border: 1px solid var(--amber);
+}
+.focus-tag.tag-task {
+  color: var(--sick-green);
+  border: 1px solid var(--sick-green);
+}
+.focus-tag.tag-notes {
+  color: var(--teal);
+  border: 1px solid var(--teal);
+}
+.focus-text {
+  flex: 1;
+  color: var(--text);
+  text-decoration: none;
+}
+a.focus-text:hover {
+  color: var(--amber);
+}
+.focus-detail {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .statusbar {

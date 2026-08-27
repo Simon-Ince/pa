@@ -129,36 +129,140 @@ function escapeHtml(str) {
 
 let latestState = null;
 
-function renderGmail(gmail) {
-  const statusEl = document.getElementById("gmail-status");
-  const listEl = document.getElementById("gmail-list");
-  const footer = document.getElementById("footer-gmail");
-  footer.textContent = `inbox: ${timeAgo(gmail.last_updated)}`;
+function renderSignal(gmail, triage) {
+  const statusEl = document.getElementById("signal-status");
+  const countEl = document.getElementById("signal-count");
+  const listEl = document.getElementById("signal-list");
+  const footerGmail = document.getElementById("footer-gmail");
+  const footerTriage = document.getElementById("footer-triage");
+  footerGmail.textContent = `inbox: ${timeAgo(gmail.last_updated)}`;
+  footerTriage.textContent = `triage: ${timeAgo(triage.last_updated)}`;
 
   if (gmail.status === "unavailable" || gmail.status === "error") {
     statusEl.textContent = "Gmail unavailable — " + (gmail.error || "unknown error");
+    statusEl.classList.add("error");
+    countEl.textContent = "--";
+  } else {
+    statusEl.classList.remove("error");
+    statusEl.textContent = gmail.status === "pending" ? "loading…" : "untriaged / unread";
+    countEl.textContent = gmail.status === "pending" ? "--" : String(gmail.unread_count ?? 0);
+  }
+
+  if (triage.status === "error") {
+    listEl.innerHTML = `<div class="empty-state">Triage snapshot error — ${escapeHtml(triage.error || "unknown error")}</div>`;
+    return;
+  }
+  if (triage.status === "empty" || triage.status === "pending") {
+    listEl.innerHTML = `<div class="empty-state">No triage snapshot yet. Waiting on the 8am/1pm cron.</div>`;
+    return;
+  }
+
+  const items = triage.items || [];
+  const staleTag = triage.stale
+    ? `<span class="stale-flag">STALE</span>`
+    : "";
+  const meta = `<div class="triage-meta">Generated ${triage.generated_at ? new Date(triage.generated_at).toLocaleString() : "?"} · ${items.length} flagged${staleTag}</div>`;
+
+  if (items.length === 0) {
+    listEl.innerHTML = meta + `<div class="empty-state">Last run found nothing needing attention.</div>`;
+    return;
+  }
+
+  listEl.innerHTML =
+    meta +
+    items
+      .map((it) => {
+        const urgency = (it.urgency || "").toLowerCase();
+        const body = it.link
+          ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.summary || "")}</a>`
+          : escapeHtml(it.summary || "");
+        return `
+      <div class="triage-item urgency-${escapeHtml(urgency)}">
+        <div class="triage-source">${escapeHtml(it.source || "")}${urgency ? " · " + escapeHtml(urgency) : ""}</div>
+        ${body}
+      </div>`;
+      })
+      .join("");
+}
+
+function renderTasks(ticktick) {
+  const statusEl = document.getElementById("tasks-status");
+  const listEl = document.getElementById("tasks-list");
+  const footer = document.getElementById("footer-tasks");
+  footer.textContent = `tasks: ${timeAgo(ticktick.last_updated)}`;
+
+  if (ticktick.status === "unavailable" || ticktick.status === "error") {
+    statusEl.textContent = "TickTick unavailable — " + (ticktick.error || "unknown error");
     statusEl.classList.add("error");
     listEl.innerHTML = "";
     return;
   }
   statusEl.classList.remove("error");
-  statusEl.textContent = gmail.status === "pending" ? "loading…" : `${gmail.items.length} unread`;
+  statusEl.textContent = ticktick.status === "pending" ? "loading…" : `${ticktick.items.length} open`;
 
-  if (!gmail.items || gmail.items.length === 0) {
-    listEl.innerHTML = gmail.status === "pending" ? "" : `<div class="empty-state">Inbox zero. Nothing unread in the last 3 days.</div>`;
+  if (!ticktick.items || ticktick.items.length === 0) {
+    listEl.innerHTML = ticktick.status === "pending" ? "" : `<div class="empty-state">No open tasks.</div>`;
     return;
   }
 
-  listEl.innerHTML = gmail.items
-    .map(
-      (m) => `
-      <a class="mail-row" href="${escapeHtml(m.link)}" target="_blank" rel="noopener">
-        <span class="mail-time">${m.received_at ? new Date(m.received_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span>
-        <div class="mail-from">${escapeHtml(m.from)}</div>
-        <div class="mail-subject">${escapeHtml(m.subject)}</div>
-        <div class="mail-snippet">${escapeHtml(m.snippet)}</div>
-      </a>`
-    )
+  const todayStr = new Date().toDateString();
+  listEl.innerHTML = ticktick.items
+    .map((t) => {
+      let due = "";
+      let overdueClass = "";
+      if (t.due_date) {
+        const d = new Date(t.due_date);
+        const isOverdue = d.getTime() < Date.now() && d.toDateString() !== todayStr;
+        overdueClass = isOverdue ? "overdue" : "";
+        due = `<span class="task-due ${isOverdue ? "overdue-text" : ""}">${d.toLocaleDateString([], { month: "short", day: "numeric" })}</span>`;
+      }
+      const priority = t.priority ? `<span class="task-priority">P${t.priority}</span>` : "";
+      const titleHtml = t.link
+        ? `<a href="${escapeHtml(t.link)}" target="_blank" rel="noopener">${escapeHtml(t.title)}</a>`
+        : escapeHtml(t.title);
+      return `
+      <div class="task-row ${overdueClass}">
+        <div class="task-title">${titleHtml}</div>
+        <div class="task-meta">${escapeHtml(t.project || "")} ${due} ${priority}</div>
+      </div>`;
+    })
+    .join("");
+}
+
+const FOCUS_TAG_CLASS = { SIGNAL: "tag-signal", MEETING: "tag-meeting", TASK: "tag-task", NOTES: "tag-notes" };
+
+function renderFocus(focus) {
+  const statusEl = document.getElementById("focus-status");
+  const listEl = document.getElementById("focus-list");
+
+  if (focus.status === "error") {
+    statusEl.textContent = "Focus computation error — " + (focus.error || "unknown error");
+    statusEl.classList.add("error");
+    listEl.innerHTML = "";
+    return;
+  }
+  statusEl.classList.remove("error");
+  statusEl.textContent = focus.status === "pending" ? "computing…" : "";
+
+  const items = focus.items || [];
+  if (items.length === 0) {
+    listEl.innerHTML = `<div class="empty-state">Nothing urgent — clear to focus.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = items
+    .map((it) => {
+      const tagClass = FOCUS_TAG_CLASS[it.source] || "tag-signal";
+      const body = it.link
+        ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener" class="focus-text">${escapeHtml(it.text)}</a>`
+        : `<span class="focus-text">${escapeHtml(it.text)}</span>`;
+      return `
+      <div class="focus-item">
+        <span class="focus-tag ${tagClass}">${escapeHtml(it.source)}</span>
+        ${body}
+        ${it.detail ? `<span class="focus-detail">${escapeHtml(it.detail)}</span>` : ""}
+      </div>`;
+    })
     .join("");
 }
 
@@ -259,51 +363,13 @@ function renderLoops(wn) {
   }).join("");
 }
 
-function renderTriage(triage) {
-  const statusEl = document.getElementById("triage-status");
-  const listEl = document.getElementById("triage-list");
-  const footer = document.getElementById("footer-triage");
-  footer.textContent = `triage: ${timeAgo(triage.last_updated)}`;
-
-  if (triage.status === "error") {
-    statusEl.textContent = "Triage snapshot error — " + (triage.error || "unknown error");
-    statusEl.classList.add("error");
-    listEl.innerHTML = "";
-    return;
-  }
-  statusEl.classList.remove("error");
-
-  if (triage.status === "empty" || triage.status === "pending") {
-    statusEl.textContent = "";
-    listEl.innerHTML = `<div class="empty-state">No triage snapshot yet. Waiting on the 8am/1pm cron.</div>`;
-    return;
-  }
-
-  const items = triage.items || [];
-  statusEl.innerHTML = `<div class="triage-meta">Generated ${triage.generated_at ? new Date(triage.generated_at).toLocaleString() : "?"} · ${items.length} item(s) · ${escapeHtml(triage.channel || "")}</div>`;
-
-  if (items.length === 0) {
-    listEl.innerHTML = `<div class="empty-state">Last run found nothing needing attention.</div>`;
-    return;
-  }
-
-  listEl.innerHTML = items
-    .map(
-      (it) => `
-      <div class="triage-item">
-        <div class="triage-source">${escapeHtml(it.source || "")}</div>
-        ${it.link ? `<a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.summary || "")}</a>` : escapeHtml(it.summary || "")}
-      </div>`
-    )
-    .join("");
-}
-
 function render(state) {
   latestState = state;
-  if (state.gmail) renderGmail(state.gmail);
+  if (state.focus) renderFocus(state.focus);
+  if (state.gmail) renderSignal(state.gmail, state.triage || { status: "pending" });
   if (state.calendar) renderCalendar(state.calendar);
+  if (state.ticktick) renderTasks(state.ticktick);
   if (state.weekly_notes) renderLoops(state.weekly_notes);
-  if (state.triage) renderTriage(state.triage);
 }
 
 setInterval(tickCountdowns, 1000);

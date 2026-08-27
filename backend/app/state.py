@@ -6,9 +6,16 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
-from . import weekly_notes
-from .google_client import CredentialsHolder, GoogleAuthError, fetch_calendar_events, fetch_gmail_unread
+from . import focus as focus_module
+from . import ticktick_client, weekly_notes
+from .google_client import (
+    CredentialsHolder,
+    GoogleAuthError,
+    fetch_calendar_events,
+    fetch_gmail_unread_count,
+)
 
 logger = logging.getLogger("pa.state")
 
@@ -16,10 +23,17 @@ GMAIL_POLL_SECONDS = 50
 CALENDAR_POLL_SECONDS = 60
 WEEKLY_NOTES_POLL_SECONDS = 120
 TRIAGE_POLL_SECONDS = 90
+TICKTICK_POLL_SECONDS = 150
+FOCUS_POLL_SECONDS = 20
 HEARTBEAT_SECONDS = 25
 
 VAULT_DIR = os.environ.get("VAULT_WEEKLY_NOTES_DIR", "/vault/Weekly Notes")
 TRIAGE_DATA_DIR = os.environ.get("TRIAGE_DATA_DIR", "/data")
+
+LOCAL_TZ = ZoneInfo("Europe/London")
+TRIAGE_STALE_HOURS = 7
+WORK_HOURS_START = 8
+WORK_HOURS_END = 18
 
 
 def now_iso() -> str:
@@ -33,7 +47,7 @@ def _empty_section(status: str) -> dict:
 class AppState:
     def __init__(self):
         self.data = {
-            "gmail": {"status": "pending", "items": [], "last_updated": None},
+            "gmail": {"status": "pending", "unread_count": None, "last_updated": None},
             "calendar": {"status": "pending", "items": [], "last_updated": None},
             "weekly_notes": {
                 "status": "pending",
@@ -43,6 +57,8 @@ class AppState:
                 "last_updated": None,
             },
             "triage": {"status": "pending", "last_updated": None},
+            "ticktick": {"status": "pending", "items": [], "last_updated": None},
+            "focus": {"status": "pending", "items": [], "last_updated": None},
         }
         self._lock = asyncio.Lock()
         self._subscribers: set[asyncio.Queue] = set()
@@ -61,6 +77,10 @@ class AppState:
         async with self._lock:
             return json.dumps(self.data)
 
+    async def snapshot_dict(self) -> dict:
+        async with self._lock:
+            return dict(self.data)
+
     def subscribe(self) -> asyncio.Queue:
         q = asyncio.Queue()
         self._subscribers.add(q)
@@ -74,21 +94,21 @@ async def gmail_loop(state: AppState, creds_holder: CredentialsHolder):
     while True:
         try:
             creds = await asyncio.to_thread(creds_holder.get)
-            items = await asyncio.to_thread(fetch_gmail_unread, creds)
+            count = await asyncio.to_thread(fetch_gmail_unread_count, creds)
             await state.update(
-                "gmail", {"status": "ok", "items": items, "last_updated": now_iso()}
+                "gmail", {"status": "ok", "unread_count": count, "last_updated": now_iso()}
             )
         except GoogleAuthError as e:
             logger.error("gmail auth error: %s", e)
             await state.update(
                 "gmail",
-                {"status": "unavailable", "error": str(e), "items": [], "last_updated": now_iso()},
+                {"status": "unavailable", "error": str(e), "unread_count": None, "last_updated": now_iso()},
             )
         except Exception as e:
             logger.exception("gmail poll failed")
             await state.update(
                 "gmail",
-                {"status": "error", "error": str(e), "items": [], "last_updated": now_iso()},
+                {"status": "error", "error": str(e), "unread_count": None, "last_updated": now_iso()},
             )
         await asyncio.sleep(GMAIL_POLL_SECONDS)
 
@@ -152,6 +172,28 @@ async def weekly_notes_loop(state: AppState):
         await asyncio.sleep(WEEKLY_NOTES_POLL_SECONDS)
 
 
+def _is_triage_stale(generated_at: str | None) -> bool:
+    """Stale = the snapshot is older than TRIAGE_STALE_HOURS *and* it's
+    currently within weekday work hours (no point flagging staleness at
+    2am — nothing's happened since the last run anyway).
+    """
+    if not generated_at:
+        return False
+    try:
+        v = generated_at[:-1] + "+00:00" if generated_at.endswith("Z") else generated_at
+        gen = datetime.fromisoformat(v)
+    except ValueError:
+        return False
+    now = datetime.now(timezone.utc)
+    age_hours = (now - gen).total_seconds() / 3600
+    if age_hours < TRIAGE_STALE_HOURS:
+        return False
+    local_now = now.astimezone(LOCAL_TZ)
+    if local_now.weekday() >= 5:
+        return False
+    return WORK_HOURS_START <= local_now.hour < WORK_HOURS_END
+
+
 def _read_triage_snapshot() -> dict:
     path = os.path.join(TRIAGE_DATA_DIR, "triage_snapshot.json")
     if not os.path.isfile(path):
@@ -159,11 +201,14 @@ def _read_triage_snapshot() -> dict:
     try:
         with open(path, encoding="utf-8") as f:
             snap = json.load(f)
+        generated_at = snap.get("generated_at")
         return {
             "status": "ok",
-            "generated_at": snap.get("generated_at"),
+            "generated_at": generated_at,
             "channel": snap.get("channel"),
+            "unread_count": snap.get("unread_count"),
             "items": snap.get("items", []),
+            "stale": _is_triage_stale(generated_at),
             "last_updated": now_iso(),
         }
     except Exception as e:
@@ -175,3 +220,47 @@ async def triage_loop(state: AppState):
         snap = await asyncio.to_thread(_read_triage_snapshot)
         await state.update("triage", snap)
         await asyncio.sleep(TRIAGE_POLL_SECONDS)
+
+
+async def ticktick_loop(state: AppState):
+    while True:
+        try:
+            items = await asyncio.to_thread(ticktick_client.fetch_open_tasks)
+            await state.update(
+                "ticktick", {"status": "ok", "items": items, "last_updated": now_iso()}
+            )
+        except ticktick_client.TickTickAuthError as e:
+            logger.error("ticktick auth error: %s", e)
+            await state.update(
+                "ticktick",
+                {"status": "unavailable", "error": str(e), "items": [], "last_updated": now_iso()},
+            )
+        except Exception as e:
+            logger.exception("ticktick poll failed")
+            await state.update(
+                "ticktick",
+                {"status": "error", "error": str(e), "items": [], "last_updated": now_iso()},
+            )
+        await asyncio.sleep(TICKTICK_POLL_SECONDS)
+
+
+async def focus_loop(state: AppState):
+    while True:
+        try:
+            snap = await state.snapshot_dict()
+            now = datetime.now(timezone.utc)
+            items = focus_module.compute_focus(
+                triage=snap.get("triage"),
+                calendar=snap.get("calendar"),
+                ticktick=snap.get("ticktick"),
+                weekly_notes=snap.get("weekly_notes"),
+                now=now,
+                tz=LOCAL_TZ,
+            )
+            await state.update("focus", {"status": "ok", "items": items, "last_updated": now_iso()})
+        except Exception as e:
+            logger.exception("focus computation failed")
+            await state.update(
+                "focus", {"status": "error", "error": str(e), "items": [], "last_updated": now_iso()}
+            )
+        await asyncio.sleep(FOCUS_POLL_SECONDS)
