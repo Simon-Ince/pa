@@ -1,37 +1,72 @@
-/* PA Command Center — vanilla JS frontend: starfield canvas, SSE state sync,
- * live clock + countdown ticking, panel rendering. */
+/* PA Command Center — vanilla JS frontend: ambient dust/wireframe canvas,
+ * SSE state sync, live clock + countdown ticking, panel rendering. */
 
-(function starfield() {
+(function ambientScene() {
   const canvas = document.getElementById("bg-canvas");
   const ctx = canvas.getContext("2d");
-  let stars = [];
+  let motes = [];
+  let facets = [];
 
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    const count = Math.floor((canvas.width * canvas.height) / 9000);
-    stars = Array.from({ length: count }, () => ({
+    const count = Math.floor((canvas.width * canvas.height) / 16000);
+    motes = Array.from({ length: count }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
-      r: Math.random() * 1.4 + 0.2,
-      speed: Math.random() * 0.15 + 0.02,
+      r: Math.random() * 1.1 + 0.3,
+      speed: Math.random() * 0.06 + 0.01,
+      drift: (Math.random() - 0.5) * 0.05,
       twinkle: Math.random() * Math.PI * 2,
     }));
+    facets = Array.from({ length: 3 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 70 + 60,
+      angle: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.0006,
+    }));
+  }
+
+  function drawFacet(f) {
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.angle);
+    ctx.strokeStyle = "rgba(124, 141, 153, 0.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const sides = 3;
+    for (let i = 0; i <= sides; i++) {
+      const a = (i / sides) * Math.PI * 2;
+      const px = Math.cos(a) * f.size;
+      const py = Math.sin(a) * f.size * 0.8;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   function frame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const s of stars) {
-      s.twinkle += 0.02;
-      const alpha = 0.4 + Math.abs(Math.sin(s.twinkle)) * 0.6;
+
+    for (const f of facets) {
+      f.angle += f.spin;
+      drawFacet(f);
+    }
+
+    for (const m of motes) {
+      m.twinkle += 0.015;
+      const alpha = 0.15 + Math.abs(Math.sin(m.twinkle)) * 0.25;
       ctx.beginPath();
-      ctx.fillStyle = `rgba(232, 230, 255, ${alpha})`;
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(159, 178, 186, ${alpha})`;
+      ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2);
       ctx.fill();
-      s.y += s.speed;
-      if (s.y > canvas.height) {
-        s.y = 0;
-        s.x = Math.random() * canvas.width;
+      m.y += m.speed;
+      m.x += m.drift;
+      if (m.y > canvas.height) {
+        m.y = 0;
+        m.x = Math.random() * canvas.width;
       }
     }
     requestAnimationFrame(frame);
