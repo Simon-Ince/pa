@@ -3,26 +3,33 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PA Command Center</title>
+<title>Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=14" />
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem("pa-theme");
+    if (t !== "dark" && t !== "light") {
+      t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
-<div class="bg-comp" aria-hidden="true"></div>
-<div class="wrap">
+<div class="swiss-noise" aria-hidden="true"></div>
+<div class="wrap swiss-grid">
   <header class="banner">
-    <div class="wordmark-group">
-      <svg class="logo-mark" width="36" height="36" viewBox="0 0 36 36" aria-hidden="true">
-        <rect x="4" y="4" width="16" height="16" fill="#F0C020" stroke="#121212" stroke-width="2"/>
-        <circle cx="26" cy="12" r="8" fill="#D02020" stroke="#121212" stroke-width="2"/>
-        <polygon points="10,32 20,14 30,32" fill="#1040C0" stroke="#121212" stroke-width="2" stroke-linejoin="round"/>
-      </svg>
-      <h1 class="wordmark">PA Command Center</h1>
-    </div>
+    <h1 class="visually-hidden">Dashboard</h1>
+    <div id="clock" class="clock">--:--:--</div>
     <div class="banner-right">
-      <div id="clock" class="clock">--:--:--</div>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode">
+        <span class="theme-toggle-mark" aria-hidden="true"></span>
+      </button>
       <div class="conn-status">
         <span id="conn-dot" class="dot amber"></span>
         <span id="conn-label">connecting</span>
@@ -33,6 +40,7 @@
   <main class="main-stack">
     <section class="panel panel-focus">
       <div class="panel-header">
+        <span class="panel-index">01</span>
         <h2 class="panel-title">Focus</h2>
       </div>
       <div class="panel-body">
@@ -44,6 +52,7 @@
     <div class="grid-row">
       <section class="panel panel-calendar">
         <div class="panel-header">
+          <span class="panel-index">02</span>
           <h2 class="panel-title">Today / Tomorrow</h2>
         </div>
         <div class="panel-body">
@@ -54,6 +63,7 @@
 
       <section class="panel panel-tasks">
         <div class="panel-header">
+          <span class="panel-index">03</span>
           <h2 class="panel-title">Tasks</h2>
         </div>
         <div class="panel-body">
@@ -64,11 +74,12 @@
 
       <section class="panel panel-signal">
         <div class="panel-header">
+          <span class="panel-index">04</span>
           <h2 class="panel-title">Signal</h2>
+          <div id="signal-count" class="signal-count-chip"></div>
         </div>
-        <div class="panel-body">
+        <div class="panel-body swiss-dots">
           <div id="signal-status" class="panel-substatus"></div>
-          <div id="signal-count" class="signal-count"></div>
           <div id="signal-list" class="panel-list scroll"></div>
         </div>
       </section>
@@ -84,6 +95,6 @@
   </footer>
 </div>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=15"></script>
 </body>
 </html>

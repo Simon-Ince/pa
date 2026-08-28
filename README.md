@@ -1,10 +1,10 @@
 # PA Command Center
 
 A self-hosted, always-on personal dashboard for Simon. One FastAPI service
-serves both the API and a plain HTML/CSS/JS frontend — Bauhaus /
-constructivist modernism (v4): primary color-blocking, thick black borders,
-hard offset shadows, geometric shapes — pulling from Gmail, Google
-Calendar, a message-triage cron snapshot, and TickTick.
+serves both the API and a plain HTML/CSS/JS frontend — Swiss International
+Typographic Style (v5): Inter, black/white/Swiss red, a visible grid, no
+shadows — pulling from Gmail, Google Calendar, a message-triage cron
+snapshot, and TickTick.
 
 ## Run it
 
@@ -13,7 +13,10 @@ cp .env.example .env   # adjust paths only if yours differ from the defaults
 docker compose up -d --build
 ```
 
-Then open **http://localhost:8420**.
+Then open **http://localhost:8420**. Theme toggle (square in the header) switches
+light/dark; choice is stored in `localStorage`. First visit follows the OS
+preference. Dark mode is a black canvas, charcoal panels, light type,
+white rules, and Swiss red for signal — not inverted white cards.
 
 Stop it:
 
@@ -27,49 +30,108 @@ Logs:
 docker compose logs -f
 ```
 
+## How Hermes Agent fits
+
+This repo is a **read-only command centre**. It does not run triage, send
+Slack messages, draft replies, or write notes. Hermes Agent (the `pa`
+profile) is the thing that does that work. The dashboard mounts Hermes's
+existing files and displays them.
+
+```
+Hermes (cron / Slack)          this dashboard
+---------------------          --------------
+message triage  ──writes──►  dashboard_data/triage_snapshot.json
+Google OAuth token  ─ro──►  Gmail unread count + Calendar
+TickTick token      ─ro──►  Tasks
+```
+
+**Triage snapshot path** (what Hermes should write):
+
+`/Users/simonince/.hermes/profiles/pa/dashboard_data/triage_snapshot.json`
+
+That folder is `DASHBOARD_DATA_PATH` in `.env`, bind-mounted read-only into
+the container as `/data`. The dashboard polls it every ~90s. Shape is in
+"Triage snapshot contract" below. `generated_at` drives the STALE flag
+(shown on weekdays 8am–6pm if the file is older than ~7 hours) and the
+Gmail "unread since last triage" window.
+
+**SIGNAL** is two layers:
+
+1. The **list** — `items` from that snapshot. Those are the messages/chats
+   Hermes already judged worth surfacing (`gmail` / `chat` / etc, with
+   `urgent` / `reply` / `action` / `waiting`). Not a raw inbox.
+2. The **header count** — live Gmail unread *since* `generated_at`, fetched
+   by this app. It is not the snapshot's `unread_count` field.
+
+FOCUS pulls `urgent` and `reply` items from the same snapshot. Calendar and
+TickTick are live API reads using the same tokens Hermes already has;
+Hermes does not need to dump those into the snapshot.
+
 ## What each panel shows
 
 - **FOCUS** — full-width hero strip at the top, the "what should I actually
-  look at right now" list, given room to breathe rather than a cramped box.
-  Computed server-side every ~20s by a plain heuristic in
-  `backend/app/focus.py` (no LLM call — deliberately kept inspectable). It
-  combines the other three sources into a single ranked list, capped at 5
-  items, deduped by text, ranked in this order (highest priority first):
+  look at right now" list. Rendered as a vertical numbered 1–5 list (rank
+  in a geometric square), not wrapping chips. Computed server-side every
+  ~20s by a plain heuristic in `backend/app/focus.py` (no LLM call —
+  deliberately kept inspectable). It combines the other three sources into
+  a single ranked list, capped at 5 items, deduped by text, ranked in this
+  order (highest priority first):
   1. triage items flagged `urgent`
   2. calendar meetings starting within the next 60 minutes
   3. overdue TickTick tasks
   4. TickTick tasks due today
   5. triage items flagged as needing a `reply`
   Each item is tagged with the source it came from (`SIGNAL` / `MEETING` /
-  `TASK`) so it's traceable back to the panel it was derived from — the tag
-  colour matches that panel's accent colour. If nothing qualifies it shows
-  "Nothing urgent — clear to focus" rather than an empty box.
+  `TASK`) so it's traceable back to the panel it was derived from. `SIGNAL`
+  is the only source that uses Swiss red as a fill. FOCUS is the "now"
+  list; the columns below are the supporting queues, so some items may also
+  appear there. If nothing qualifies it shows "Nothing urgent — clear to
+  focus" rather than an empty box.
 - **TODAY / TOMORROW** — Calendar events from now through the end of
   tomorrow, with all-day "working location" markers filtered out (see
-  below). Shows time, title, location/meet link, and a live "starts in
-  Xm" countdown that ticks client-side. The next upcoming event is
-  highlighted. Polled every ~60s.
-- **SIGNAL** — shows a prominent live unread count (`is:unread
-  newer_than:3d -category:promotions -category:social` against the primary
-  inbox, cheap `resultSizeEstimate` call — no per-message fetch), and below
-  it the items the existing "Simon message triage" cron judged worth
-  surfacing, read from its JSON snapshot (see contract below). Each item
-  shows its source (`gmail`/`chat`/etc) and urgency; `urgent` items get a
-  brighter amber treatment. If the snapshot is more than ~7 hours old *and*
-  it's currently a weekday between 8am and 6pm, a "STALE" flag appears next
+  below). Each event includes `start` and `end`. The list is split into
+  Today / Tomorrow. Timed events whose intervals overlap are clustered as
+  one block with an `OVERLAP` badge (side-by-side lanes when they fit),
+  each showing a time range (`14:50–18:00`) rather than two sequential
+  `NOW` cards. In-progress events show "ends in Xm"; upcoming events show
+  "starts in Xm" — the old "still NOW for 60 minutes after start" rule is
+  gone. In-progress clusters (or the next upcoming, if nothing is in
+  progress) are inverted (black fill, white type). Polled every ~60s.
+- **SIGNAL** — the body is the items the existing "Simon message triage"
+  cron judged worth surfacing, read from its JSON snapshot (see contract
+  below). The live Gmail unread count sits as a small chip in the panel
+  header (clickable through to the exact Gmail search), not a giant
+  billboard. The count is unread primary inbox mail since the last triage
+  run. Gmail's `after:{unix}` operator returns 0 when combined with
+  `-category:` filters, so the query uses `newer_than:{N}h` (rounded up
+  from `generated_at`, plus a one-hour buffer). If `generated_at` is
+  missing or in the future it falls back to `newer_than:3d`. Counted by
+  paging message IDs, not `resultSizeEstimate`. Each item shows its source (`gmail`/`chat`/etc) and
+  urgency; `urgent` items get a red geometric marker and badge, not a
+  full-row fill. If the snapshot is more than ~7 hours old *and* it's
+  currently a weekday between 8am and 6pm, a "STALE" flag appears next
   to it (the data itself is still shown, never hidden).
-- **TASKS** — Simon's incomplete TickTick to-dos. See the TickTick section
-  below for the data contract and one non-obvious API quirk. Polled every
-  ~2.5 minutes (no need for SSE-fast refresh on todos).
+- **TASKS** — overdue and due-today TickTick to-dos, grouped under those
+  labels, plus a quiet `+N later` count for everything else (future due
+  date or no due date). Titles have markdown/Obsidian links stripped to
+  human text. Overdue is a small red square + red date, not a solid red
+  card. See the TickTick section below for the data contract and one
+  non-obvious API quirk. Polled every ~2.5 minutes (no need for SSE-fast
+  refresh on todos).
 
 Below FOCUS, the three panels sit in a 12-column grid sized to their real
 content volume rather than uniform equal boxes: CALENDAR (narrower,
-timeline-shaped, ~6 items) spans 4 columns, TASKS (up to 15 items) spans 5,
-SIGNAL (up to 8 items) spans 3. Panels scroll internally only if content
-genuinely exceeds the available height.
+timeline-shaped) spans 4 columns, TASKS (curated overdue + today) spans 5,
+SIGNAL (flagged triage items) spans 3. On the wide grid the page is locked
+to the viewport and lists scroll inside a panel only if they overflow that
+column. Below 1100px (stacked / portrait) the page scrolls instead — no
+nested scrollbars.
 
-Footer shows a per-source "last updated" time and an amber "RECONNECTING…"
-flag if the SSE connection drops (`EventSource` auto-reconnects).
+Footer shows per-source freshness: inbox/calendar/tasks are when this
+app last polled those APIs; **triage is `generated_at`** (when the triage
+run wrote the snapshot), not when the dashboard last reread the file. An
+amber "RECONNECTING…" flag appears if the SSE connection drops
+(`EventSource` auto-reconnects).
 
 ## v3: OPEN LOOPS panel removed
 
@@ -124,8 +186,11 @@ visual language changed:
   style, kept subtle enough not to reduce data legibility.
 - **Row-level treatment**: list rows (calendar events, tasks, triage items,
   focus items) are nested Bauhaus blocks with 2px borders and small
-  color-blocked, uppercase badges for source/urgency/priority (e.g. the
-  `urgent` triage badge and overdue task rows flip to a solid red block).
+  color-blocked, uppercase badges for source/urgency/priority. Emphasis
+  uses 8px geometric markers (red square for overdue/urgent) rather than
+  painting the whole row. Yellow fill is reserved for "now" / next-up
+  calendar blocks. FOCUS rank is a numbered square rotating yellow / blue /
+  red.
 - **Motion**: mechanical and snappy, not soft — a stepped (non-easing)
   pulse on the live connection dot instead of a soft glow, and a fast
   (`0.2s ease-out`) slide/snap-in on new SSE-rendered rows instead of a
@@ -133,6 +198,38 @@ visual language changed:
 - **Responsive**: border widths and shadow offsets scale down (4px → 2px,
   8px → 4px) below 640px; the v3 single-column breakpoint logic below
   1100px is unchanged.
+
+Superseded by v5 below.
+
+## v5: Swiss International Typographic Style
+
+The v4 Bauhaus treatment (primaries, hard offset shadows, color-blocked
+headers, geometric corner marks, Outfit) has been replaced with Swiss
+International Style — same data sources, panel layout, SSE, and backend
+logic; only the visual language changed:
+
+- **Palette** — white `#FFFFFF`, black `#000000`, muted `#F2F2F2`, and a
+  single accent **Swiss red `#FF3000`**. Red is a signal (urgent, overdue,
+  STALE, reconnecting, rank 1, section indices), not decoration.
+- **Type**: Inter (400/500/700/900). Headings and labels uppercase. Flush
+  left. No Outfit.
+- **Structure**: 4px black borders, `border-radius: 0`, **no drop
+  shadows**. Each panel is a framed block with a muted header strip and
+  gutters between sections so they don't read as one white field.
+  Numbered section labels (`01`–`04`) in red. Asymmetric 4/5/3 column
+  split unchanged.
+- **Texture**: 24px grid on the page, 16px dot matrix on SIGNAL, a faint
+  noise overlay on the light canvas (not on dark).
+- **Now/next** calendar rows invert to black fill / white type rather than
+  yellow. Overdue/urgent use a 4px red leading rule.
+- **Header**: no product title — clock, theme toggle, and connection
+  status only.
+- **Dark mode**: black canvas, charcoal panels (`#141414`), light type,
+  white rules, same red accent. Not inverted white cards.
+
+Landing-page scale from the style brief (`text-9xl`, lucide-react, full
+card hover-to-red) is intentionally not applied — this is a glance
+dashboard, not a marketing page.
 
 ## Calendar filter behavior
 
@@ -149,6 +246,10 @@ all-day "Home" entries; after filtering, 6 real timed events remained.
 Non-`workingLocation` all-day events (e.g. birthdays) are *not* filtered —
 only the working-location denylist/eventType match is excluded. If this
 list needs adjusting, it's the one place to edit — see the comment there.
+
+Each event in `/api/state` also carries `end` (same `dateTime`/`date`
+shape as `start`). The frontend uses that to detect overlapping timed
+events and to show in-progress "ends in Xm" countdowns.
 
 ## Gmail panel behavior (changed in v2)
 
@@ -183,8 +284,14 @@ mounted into the container at `/data/triage_snapshot.json`. Expected shape:
 - `unread_count` — informational count from the triage run itself (the
   SIGNAL panel's headline count is the *live* Gmail count, not this field).
 - `items` — array of `{ summary, source, urgency, link }`. `source` and
-  `urgency` are rendered as tags (urgent items get amber styling); `link`
-  (optional) makes the summary clickable.
+  `urgency` are rendered as tags; `urgent` items get a red geometric
+  marker and badge. `link` (optional) makes the whole row clickable.
+  When Hermes omits `link` for a `gmail` item, the dashboard looks up the
+  thread via the Gmail API (short proper-noun query, not the full
+  paraphrase) and opens `?fs=1#all/{threadId}` with `authuser` set to the
+  token's mailbox. Gmail links are opened via an `about:blank` navigation
+  so a new tab doesn't render Gmail's blank SPA. Chat/other sources stay
+  unlinked until Hermes writes a real URL.
 
 If the file is missing, empty, or fails to parse, the panel shows a clean
 empty/error state — the app never crashes because of it.
@@ -205,9 +312,17 @@ endpoint does not include the built-in Inbox list, and in practice nearly
 all of Simon's real open tasks live there (46 of them, vs. 0 in his one
 named project, confirmed against his real account) — so without the
 explicit inbox fetch the panel would render almost empty. Tasks are
-filtered to incomplete (`status != 2`), flattened, sorted by `dueDate`
-ascending with no-due-date items last, and capped to 15 for display.
-Overdue tasks get a red accent. Polled every ~2.5 minutes. On a 401 or
+filtered to incomplete (`status != 2`), flattened, and sorted by `dueDate`
+ascending with no-due-date items last. Titles that embed markdown
+(typically `[Inbox.md](obsidian://…)`) are parsed: the human text is the
+`title`, an `obsidian://` URL becomes `note_link`, and the TickTick web
+URL stays on `link`.
+
+The TASKS panel is curated rather than a dump of the inbox: `items` is
+overdue + due-today only (capped at 15, with `more_count` if that set is
+larger), `later_count` is everything else (future due date or none), and
+`open_count` is the total incomplete. Overdue rows get a red geometric
+marker, not a full-row fill. Polled every ~2.5 minutes. On a 401 or
 network error the panel shows a "TickTick unavailable" state rather than
 crashing the app.
 

@@ -39,7 +39,7 @@ backend/app/ticktick_client.py TickTick Open API client
 backend/app/focus.py           The FOCUS panel ranking heuristic (no LLM —
                                 deliberately plain, inspectable Python logic)
 backend/static/index.html      Page structure
-backend/static/style.css       Current visual design (Bauhaus — see below)
+backend/static/style.css       Current visual design (Swiss International)
 backend/static/app.js          SSE client, rendering, live countdowns
 docker-compose.yml             Service definition + read-only bind mounts
 .env.example                   Documents required host paths (copy to .env)
@@ -51,17 +51,14 @@ are kept in the repo root as a design-decision paper trail — each documents
 one iteration's brief. They're reference material, not living docs; if you
 change behavior, update **README.md**, not the old SPEC files.
 
-## Current state (as of v4)
+## Current state (as of v5)
 
-Visual style: **Bauhaus / constructivist modernism** — strict primary
-palette (red `#D02020`, blue `#1040C0`, yellow `#F0C020`, black `#121212`,
-off-white `#F0F0F0`), thick black borders, hard offset shadows (no blur/
-glow), binary border-radius (square or full pill), Outfit font, color-
-blocked panel headers, geometric corner shape markers per panel. This has
-gone through several full restyles already (vaporwave → low-poly Y2K
-cyber-noir/liminal → clean pastel → Bauhaus) as Simon iterated on taste —
-expect more visual iteration; keep panel/data logic decoupled from styling
-so a restyle never has to touch backend code.
+Visual style: **Swiss International (International Typographic Style)** —
+Inter, black/white/muted plus a single Swiss red `#FF3000` used only as a
+signal, 4px black rules, no drop shadows, numbered section labels, a
+visible 24px grid. Prior restyles (vaporwave → low-poly Y2K → pastel →
+Bauhaus → Swiss) are expected to continue; keep panel/data logic decoupled
+from styling so a restyle never has to touch backend code.
 
 Panels: **FOCUS** (full-width hero, ranked "what to look at now"),
 **TODAY/TOMORROW** (filtered calendar), **SIGNAL** (unread-since-last-

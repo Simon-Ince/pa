@@ -5,7 +5,7 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from . import focus as focus_module
@@ -15,6 +15,10 @@ from .google_client import (
     GoogleAuthError,
     fetch_calendar_events,
     fetch_gmail_unread_count,
+    gmail_ui_search_url,
+    gmail_keyword_query,
+    cached_gmail_thread_url,
+    resolve_triage_gmail_links,
 )
 
 logger = logging.getLogger("pa.state")
@@ -54,7 +58,14 @@ class AppState:
             },
             "calendar": {"status": "pending", "items": [], "last_updated": None},
             "triage": {"status": "pending", "last_updated": None},
-            "ticktick": {"status": "pending", "items": [], "last_updated": None},
+            "ticktick": {
+                "status": "pending",
+                "items": [],
+                "later_count": 0,
+                "open_count": 0,
+                "more_count": 0,
+                "last_updated": None,
+            },
             "focus": {"status": "pending", "items": [], "last_updated": None},
         }
         self._lock = asyncio.Lock()
@@ -87,13 +98,39 @@ class AppState:
         self._subscribers.discard(q)
 
 
+def _gmail_since_epoch(generated_at: str | None) -> int | None:
+    """Unix seconds for Gmail `after:`, or None to use the 3-day fallback.
+
+    A future `generated_at` (beyond small clock skew) is treated as a bad
+    stamp — querying `after:` a time that hasn't happened yet always
+    returns 0 and hides real unread mail.
+    """
+    gen = _parse_generated_at(generated_at)
+    if gen is None:
+        return None
+    now = datetime.now(timezone.utc)
+    if gen.tzinfo is None:
+        gen = gen.replace(tzinfo=timezone.utc)
+    if gen > now + timedelta(minutes=2):
+        logger.warning(
+            "triage generated_at is in the future (%s); using 3-day unread fallback",
+            generated_at,
+        )
+        return None
+    if gen > now:
+        gen = now
+    return int(gen.timestamp())
+
+
 async def gmail_loop(state: AppState, creds_holder: CredentialsHolder):
     while True:
         try:
-            creds = await asyncio.to_thread(creds_holder.get)
             triage = (await state.snapshot_dict()).get("triage") or {}
-            gen = _parse_generated_at(triage.get("generated_at"))
-            since_epoch = int(gen.timestamp()) if gen is not None else None
+            if triage.get("status") == "pending":
+                await asyncio.sleep(2)
+                continue
+            creds = await asyncio.to_thread(creds_holder.get)
+            since_epoch = _gmail_since_epoch(triage.get("generated_at"))
             count, query, count_window = await asyncio.to_thread(
                 fetch_gmail_unread_count, creds, since_epoch
             )
@@ -107,6 +144,11 @@ async def gmail_loop(state: AppState, creds_holder: CredentialsHolder):
                     "last_updated": now_iso(),
                 },
             )
+            items = triage.get("items") or []
+            if any((it.get("source") or "").lower() == "gmail" for it in items if isinstance(it, dict)):
+                resolved = await asyncio.to_thread(resolve_triage_gmail_links, creds, items)
+                if resolved != items:
+                    await state.update("triage", {**triage, "items": resolved})
         except GoogleAuthError as e:
             logger.error("gmail auth error: %s", e)
             await state.update(
@@ -173,6 +215,39 @@ def _is_triage_stale(generated_at: str | None) -> bool:
     return WORK_HOURS_START <= local_now.hour < WORK_HOURS_END
 
 
+def _triage_item_link(item: dict) -> str | None:
+    """Prefer Hermes's URL; for Gmail with no link, a Gmail-safe search hash.
+
+    Percent-encoding the hash (e.g. `:` → `%3A`) makes Gmail's SPA render a
+    blank page. Thread permalinks are filled in later by the Gmail poll.
+    """
+    raw = item.get("link")
+    source = (item.get("source") or "").strip().lower()
+    summary = (item.get("summary") or "").strip()
+    if source == "gmail" and summary:
+        thread = cached_gmail_thread_url(summary)
+        if thread:
+            return thread
+        if isinstance(raw, str) and raw.strip() and "#search/" not in raw:
+            return raw.strip()
+        q = gmail_keyword_query(summary) or summary
+        return gmail_ui_search_url(q)
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return None
+
+
+def _enrich_triage_items(items) -> list:
+    out = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        row = dict(it)
+        row["link"] = _triage_item_link(row)
+        out.append(row)
+    return out
+
+
 def _read_triage_snapshot() -> dict:
     path = os.path.join(TRIAGE_DATA_DIR, "triage_snapshot.json")
     if not os.path.isfile(path):
@@ -186,7 +261,7 @@ def _read_triage_snapshot() -> dict:
             "generated_at": generated_at,
             "channel": snap.get("channel"),
             "unread_count": snap.get("unread_count"),
-            "items": snap.get("items", []),
+            "items": _enrich_triage_items(snap.get("items", [])),
             "stale": _is_triage_stale(generated_at),
             "last_updated": now_iso(),
         }
@@ -201,25 +276,39 @@ async def triage_loop(state: AppState):
         await asyncio.sleep(TRIAGE_POLL_SECONDS)
 
 
+def _ticktick_error_payload(status: str, error: str) -> dict:
+    return {
+        "status": status,
+        "error": error,
+        "items": [],
+        "later_count": 0,
+        "open_count": 0,
+        "more_count": 0,
+        "last_updated": now_iso(),
+    }
+
+
 async def ticktick_loop(state: AppState):
     while True:
         try:
-            items = await asyncio.to_thread(ticktick_client.fetch_open_tasks)
+            payload = await asyncio.to_thread(ticktick_client.fetch_open_tasks)
             await state.update(
-                "ticktick", {"status": "ok", "items": items, "last_updated": now_iso()}
+                "ticktick",
+                {
+                    "status": "ok",
+                    "items": payload["items"],
+                    "later_count": payload["later_count"],
+                    "open_count": payload["open_count"],
+                    "more_count": payload["more_count"],
+                    "last_updated": now_iso(),
+                },
             )
         except ticktick_client.TickTickAuthError as e:
             logger.error("ticktick auth error: %s", e)
-            await state.update(
-                "ticktick",
-                {"status": "unavailable", "error": str(e), "items": [], "last_updated": now_iso()},
-            )
+            await state.update("ticktick", _ticktick_error_payload("unavailable", str(e)))
         except Exception as e:
             logger.exception("ticktick poll failed")
-            await state.update(
-                "ticktick",
-                {"status": "error", "error": str(e), "items": [], "last_updated": now_iso()},
-            )
+            await state.update("ticktick", _ticktick_error_payload("error", str(e)))
         await asyncio.sleep(TICKTICK_POLL_SECONDS)
 
 
@@ -241,4 +330,8 @@ async def focus_loop(state: AppState):
             await state.update(
                 "focus", {"status": "error", "error": str(e), "items": [], "last_updated": now_iso()}
             )
-        await asyncio.sleep(FOCUS_POLL_SECONDS)
+        snap = await state.snapshot_dict()
+        pending = any(
+            (snap.get(k) or {}).get("status") == "pending" for k in ("triage", "calendar", "ticktick")
+        )
+        await asyncio.sleep(2 if pending else FOCUS_POLL_SECONDS)

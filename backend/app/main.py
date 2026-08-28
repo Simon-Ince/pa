@@ -43,13 +43,25 @@ async def lifespan(app: FastAPI):
     await asyncio.gather(*_background_tasks, return_exceptions=True)
 
 
+class NoCacheStaticFiles(StaticFiles):
+    """Local always-on dashboard — never let the browser keep a stale CSS/JS."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+        return response
+
+
 app = FastAPI(title="PA Command Center", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/static", NoCacheStaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
 async def index():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(
+        os.path.join(STATIC_DIR, "index.html"),
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.get("/healthz")

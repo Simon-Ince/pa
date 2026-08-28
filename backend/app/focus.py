@@ -20,7 +20,12 @@ def _parse_iso(value):
     if not value:
         return None
     try:
-        v = value[:-1] + "+00:00" if value.endswith("Z") else value
+        v = value.strip()
+        if v.endswith("Z"):
+            v = v[:-1] + "+00:00"
+        # TickTick uses +0000 / -0500 without a colon
+        if len(v) >= 5 and v[-5] in "+-" and v[-3] != ":":
+            v = v[:-2] + ":" + v[-2:]
         dt = datetime.fromisoformat(v)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)

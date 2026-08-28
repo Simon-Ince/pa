@@ -22,7 +22,7 @@ Quick rules that matter most when editing:
 - Credentials are read-only Docker bind mounts from paths in `.env`
   (git-ignored). Never hardcode a token/secret in source, never commit
   `.env`, never touch anything under `.hermes/` from this repo.
-- Visual style is currently Bauhaus/constructivist (see README "v4"
+- Visual style is currently Swiss International (see README "v5"
   section for the exact tokens) but has changed completely several times
   already at Simon's direction — keep styling in `style.css` decoupled
   from `state.py`/`main.py` data logic so restyles never require backend
