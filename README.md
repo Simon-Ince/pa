@@ -1,9 +1,10 @@
 # PA Command Center
 
 A self-hosted, always-on personal dashboard for Simon. One FastAPI service
-serves both the API and a plain HTML/CSS/JS frontend — clean, bold,
-pastel-on-white, thick-outlined panel design (v3) — pulling from Gmail,
-Google Calendar, a message-triage cron snapshot, and TickTick.
+serves both the API and a plain HTML/CSS/JS frontend — Bauhaus /
+constructivist modernism (v4): primary color-blocking, thick black borders,
+hard offset shadows, geometric shapes — pulling from Gmail, Google
+Calendar, a message-triage cron snapshot, and TickTick.
 
 ## Run it
 
@@ -86,29 +87,52 @@ dropped along with it — the ranking list above reflects the current
 ## v3: visual redesign
 
 The old "low-poly Y2K cyber-noir / liminal gamecore" dark/glitch look
-(scanlines, noise, grain, ambient canvas dust/facets, pixel font) has been
-replaced with a clean, bold, pastel design:
+(scanlines, noise, grain, ambient canvas dust/facets, pixel font) was
+replaced with a clean, bold, pastel design (near-white canvas, thick
+3px black borders, rounded corners, Space Grotesk + Inter, one pastel
+wash/deep accent per panel). Superseded by v4 below.
 
-- **Base**: near-white/cream canvas (`#faf7f1`) with near-black ink
-  (`#221f1b`) text, thick 3px black borders as the core structural motif
-  (panels, header/footer dividers) instead of drop shadows or glow.
-  Rounded corners throughout (22px panels, 14px row cards, pill-shaped
-  tags/badges) — consistent, no mixing with sharp corners.
-- **Type**: Space Grotesk (bold, geometric) for headings/labels/numbers,
-  Inter for body text — replacing "Press Start 2P" + "JetBrains Mono".
-- **One pastel accent per panel**, wash fill + deeper accent tone for text/
-  borders/tags:
-  - FOCUS — sky-blue (`#dcedfc` wash / `#1c6fb0` deep)
-  - CALENDAR — mint (`#d9f2e3` wash / `#1f8a5f` deep)
-  - TASKS — peach (`#ffe4d1` wash / `#c9642c` deep)
-  - SIGNAL — lavender (`#e9e0fb` wash / `#6a4fc4` deep)
-  - Status accents: butter-amber (`#fff3c4` / `#a97b0a`) for urgent/stale
-    flags and the live connection dot; coral (`#ffe1de` / `#c9433a`) for
-    overdue tasks/errors.
-- **Micro-animations, not atmosphere**: the ambient canvas (drifting dust
-  motes, wireframe facets), scanline/noise overlays, and flickering-light
-  divs are gone. In their place: a soft pulse on the live connection dot,
-  and a short fade/slide-in on newly rendered list rows.
+## v4: Bauhaus / constructivist modernism restyle
+
+The v3 pastel look has been replaced entirely with a Bauhaus /
+constructivist-modernism treatment — same data sources, layout structure
+(FOCUS hero + CALENDAR/TASKS/SIGNAL grid), SSE, and backend logic, only the
+visual language changed:
+
+- **Palette** — strict primaries plus stark black/white, no gradients, no
+  pastels: background `#F0F0F0`, foreground/border `#121212`, red
+  `#D02020`, blue `#1040C0`, yellow `#F0C020`, muted `#E0E0E0`.
+- **Type**: Outfit (geometric sans, weights 400/500/700/900) everywhere,
+  replacing Space Grotesk + Inter. Headlines are uppercase font-black.
+- **Borders & shadows**: binary radius (square `0` or full `9999px` pills,
+  nothing in between). 4px black borders on panels (2px on nested row
+  cards), hard offset box-shadows (`8px 8px 0 0 #121212` on panels, down to
+  `4px 4px` on badges) — no blur, no glow.
+- **Color-blocked panel headers**, rotated deliberately so the page reads
+  as a composition rather than uniform white cards: FOCUS = solid blue
+  header strip, CALENDAR = solid yellow, TASKS = solid red, SIGNAL =
+  white/outline.
+  - Each panel also carries a distinct geometric corner marker (top-right):
+    FOCUS = circle (red), CALENDAR = square (blue), TASKS = triangle
+    (yellow), SIGNAL = rotated square/diamond (red).
+- **Geometric logo mark**: a small square + circle + triangle composition
+  in the three primaries sits beside the "PA COMMAND CENTER" wordmark in
+  the header — the app's identity mark, built as inline SVG (no icon
+  library; dependency-free frontend, as before).
+- **Decorative composition**: a low-opacity (12–15%) overlapping circle and
+  rotated square sit fixed behind the top-right of the page, Bauhaus-poster
+  style, kept subtle enough not to reduce data legibility.
+- **Row-level treatment**: list rows (calendar events, tasks, triage items,
+  focus items) are nested Bauhaus blocks with 2px borders and small
+  color-blocked, uppercase badges for source/urgency/priority (e.g. the
+  `urgent` triage badge and overdue task rows flip to a solid red block).
+- **Motion**: mechanical and snappy, not soft — a stepped (non-easing)
+  pulse on the live connection dot instead of a soft glow, and a fast
+  (`0.2s ease-out`) slide/snap-in on new SSE-rendered rows instead of a
+  gentle fade.
+- **Responsive**: border widths and shadow offsets scale down (4px → 2px,
+  8px → 4px) below 640px; the v3 single-column breakpoint logic below
+  1100px is unchanged.
 
 ## Calendar filter behavior
 
