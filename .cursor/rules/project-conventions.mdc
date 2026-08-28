@@ -1,0 +1,29 @@
+---
+description: Core project conventions for PA Command Center
+alwaysApply: true
+---
+
+This is Simon Ince's personal dashboard project. Read `/AGENTS.md` and
+`/README.md` at the repo root first — they contain the full architecture,
+panel contracts, and working conventions and are kept current.
+
+Quick rules that matter most when editing:
+
+- Verify every change against real, live data (real Gmail/Calendar/
+  TickTick/triage-snapshot output via `curl http://localhost:8420/api/state`
+  after `docker compose up -d --build`). Never claim something works from
+  reading code alone.
+- Each data source (Gmail, Calendar, TickTick, triage snapshot) must
+  degrade independently to a clean "unavailable" state on error — never
+  let one failing source crash or blank the whole dashboard.
+- No frontend build step. `backend/static/` is plain HTML/CSS/vanilla JS
+  served directly by FastAPI — don't introduce React/Vite/npm without
+  explicit sign-off from Simon.
+- Credentials are read-only Docker bind mounts from paths in `.env`
+  (git-ignored). Never hardcode a token/secret in source, never commit
+  `.env`, never touch anything under `.hermes/` from this repo.
+- Visual style is currently Bauhaus/constructivist (see README "v4"
+  section for the exact tokens) but has changed completely several times
+  already at Simon's direction — keep styling in `style.css` decoupled
+  from `state.py`/`main.py` data logic so restyles never require backend
+  changes.
