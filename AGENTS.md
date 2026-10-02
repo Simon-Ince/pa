@@ -60,13 +60,20 @@ visible 24px grid. Prior restyles (vaporwave → low-poly Y2K → pastel →
 Bauhaus → Swiss) are expected to continue; keep panel/data logic decoupled
 from styling so a restyle never has to touch backend code.
 
-Panels, in three scrolling bands (page scroll, content-height panels, no
-nested list scrollbars): **Now** is FOCUS (full-width hero) plus
-TODAY/TOMORROW, TASKS, SIGNAL. **Briefing** is Today's Note and Daily
-Brief. **Context** is Recent Meetings, Active Projects, Online Presence,
-and Triage Pipeline. SIGNAL is unread-since-last-triage + triage-flagged
-items, NOT a raw inbox list. A prior "OPEN LOOPS" panel (Obsidian weekly-
-note checkboxes) was removed in v3 — don't re-add it.
+Panels are split across five hash-routed tabs (v6), one page visible at a
+time, keys 1–5 switch tabs: **Today** (#today) is FOCUS plus
+TODAY/TOMORROW, TASKS, SIGNAL. **Brief** (#brief) is Daily Brief and
+Today's Note. **Meetings** (#meetings) is Recent Meetings with Obsidian
+links to the notes each was logged in. **Projects** (#projects) is Active
+Projects and Online Presence. **System** (#system) is Triage Pipeline and
+Feed Health (per-feed freshness, flags stale/missing feeds). Tab badges
+summarise each page (flagged count, new brief, unlogged transcripts,
+pending drafts, unhealthy feeds). To add a page: a `<nav>` tab + a
+`.page[data-page]` block in index.html and the name in `PAGES` in app.js;
+new feeds also get a row in `FEEDS` so Feed Health covers them. SIGNAL is
+unread-since-last-triage + triage-flagged items, NOT a raw inbox list. A
+prior "OPEN LOOPS" panel (Obsidian weekly-note checkboxes) was removed in
+v3 — don't re-add it.
 
 ## Credentials & mounts — do not break these
 

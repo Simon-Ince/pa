@@ -131,18 +131,26 @@ Hermes does not need to dump those into the snapshot.
 - **TRIAGE PIPELINE** — Tier 1 / Tier 2 cron health (last run, next run,
   failing flag) from `pipeline_status.json`. System status, not work.
 
-The page is a scrolling briefing, not a viewport-locked wall of boxes.
-Panels size to their content and the page scrolls as one document — no
-nested list scrollbars. Three bands, in PA order:
+**v6: tabs.** The app outgrew a single page, so panels now live on five
+hash-routed tabs (bookmarkable, keys 1–5 switch). One page is visible at a
+time; each scrolls as one document with content-height panels.
 
-1. **Now** — FOCUS (full width), then CALENDAR / TASKS / SIGNAL in the
-   existing 4/5/3 split.
-2. **Briefing** — TODAY'S NOTE (7) and DAILY BRIEF (5), given the width
-   prose actually needs.
-3. **Context** — meetings, projects, presence, pipeline in 6/6 pairs.
+1. **Today** (`#today`) — FOCUS (full width), then CALENDAR / TASKS /
+   SIGNAL in the 4/5/3 split. The default landing page.
+2. **Brief** (`#brief`) — DAILY BRIEF (7) and TODAY'S NOTE (5).
+3. **Meetings** (`#meetings`) — RECENT MEETINGS full width, each with
+   Obsidian links to the notes it was logged in.
+4. **Projects** (`#projects`) — ACTIVE PROJECTS (8, all of them, names
+   open in Obsidian) and ONLINE PRESENCE (4).
+5. **System** (`#system`) — TRIAGE PIPELINE and FEED HEALTH, which checks
+   every feed's own timestamp against a max age and flags stale/missing
+   ones.
 
-A labelled band sits above each group so the ten panels don't compete as
-equal widgets. Below 1100px everything stacks to a single column.
+Tab badges summarise the hidden pages: triage-flagged count on Today (red
+if any are urgent), "new" on Brief when today's brief exists, transcripts
+not yet logged on Meetings, pending drafts on Projects, "!" on System when
+any feed is unhealthy. Below 1100px panels stack and the tab bar scrolls
+horizontally.
 
 Footer shows per-source freshness: inbox/calendar/tasks are when this
 app last polled those APIs; **triage is `generated_at`** (when the triage

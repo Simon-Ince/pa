@@ -507,6 +507,8 @@ function render(state) {
   if (state.recent_meetings) renderRecentMeetings(state.recent_meetings);
   if (state.online_presence) renderOnlinePresence(state.online_presence);
   if (state.daily_brief) renderDailyBrief(state.daily_brief);
+  renderFeedHealth(state);
+  renderBadges(state);
 }
 
 function renderPipeline(pipeline) {
@@ -528,7 +530,12 @@ function renderPipeline(pipeline) {
 
   function tierRow(label, t) {
     const stateTag = t.state ? `<span class="triage-source">${escapeHtml(t.state)}</span>` : "";
-    const lastRun = t.last_run ? escapeHtml(t.last_run.split(" ")[0]) : "never";
+    const lastIso = t.last_run ? t.last_run.split(" ")[0] : "";
+    const fmtRun = (iso) => {
+      const d = parseIso(iso);
+      return d ? d.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : iso || "?";
+    };
+    const lastRun = lastIso ? `${escapeHtml(fmtRun(lastIso))} (${escapeHtml(timeAgo(lastIso))})` : "never";
     const isErr = t.last_run && t.last_run.includes("error");
     return `
       <div class="triage-item ${isErr ? "urgency-urgent" : ""}">
@@ -536,7 +543,7 @@ function renderPipeline(pipeline) {
           <span class="triage-source">${escapeHtml(label)}</span>
           ${stateTag}
         </div>
-        <span class="triage-summary">last run: ${lastRun}${isErr ? " (failing)" : ""}<br/>next run: ${escapeHtml(t.next_run || "?")}</span>
+        <span class="triage-summary">last run: ${lastRun}${isErr ? " (failing)" : ""}<br/>next run: ${escapeHtml(t.next_run ? fmtRun(t.next_run) : "?")}${t.schedule ? ` · ${escapeHtml(t.schedule)}` : ""}</span>
       </div>`;
   }
 
@@ -613,7 +620,8 @@ function renderRecentMeetings(recentMeetings) {
             ${transcriptTag}
             ${writtenTag}
           </div>
-          <span class="triage-summary">${escapeHtml(m.summary)}</span>
+          <span class="triage-summary">${escapeHtml(m.summary)}${m.attendee_count ? ` <span class="focus-detail">${m.attendee_count} people</span>` : ""}</span>
+          ${(m.note_paths || []).length ? `<div class="note-links">${m.note_paths.map((np) => `<a href="${escapeHtml(obsidianUrl(np))}">${escapeHtml(np.replace(/^.*\//, "").replace(/\.md$/, ""))}</a>`).join("")}</div>` : ""}
         </div>`;
       })
       .join("")
@@ -636,16 +644,18 @@ function renderProjects(vaultNotes) {
   setHtml(
     listEl,
     projects
-      .slice(0, 12)
       .map((p) => {
         const d = parseIso(p.modified);
         const modStr = d ? timeAgo(p.modified) : "";
+        const nameHtml = p.path
+          ? `<a href="${escapeHtml(obsidianUrl(p.path))}">${escapeHtml(p.name)}</a>`
+          : escapeHtml(p.name);
         return `
         <div class="triage-item">
           <div class="triage-tags">
             <span class="triage-source">${escapeHtml(modStr)}</span>
           </div>
-          <span class="triage-summary"><strong>${escapeHtml(p.name)}</strong>${p.description ? " — " + escapeHtml(p.description) : ""}</span>
+          <span class="triage-summary"><strong>${nameHtml}</strong>${p.description ? " — " + escapeHtml(stripWikilinks(p.description)) : ""}</span>
         </div>`;
       })
       .join("")
@@ -829,3 +839,135 @@ function applyTheme(theme) {
     applyTheme(currentTheme() === "dark" ? "light" : "dark");
   });
 })();
+
+
+/* ---------- vault links ---------- */
+
+function obsidianUrl(path) {
+  return `obsidian://open?vault=${encodeURIComponent("Obsidian Vault")}&file=${encodeURIComponent(String(path).replace(/\.md$/, ""))}`;
+}
+
+/* ---------- feed health ---------- */
+
+// Max acceptable age (minutes) of each feed's own generated_at before we call it stale.
+const FEEDS = [
+  { key: "gmail", label: "Gmail", ts: "last_updated", maxAge: 15 },
+  { key: "calendar", label: "Calendar", ts: "last_updated", maxAge: 15 },
+  { key: "ticktick", label: "TickTick", ts: "last_updated", maxAge: 15 },
+  { key: "triage", label: "Triage snapshot", ts: "generated_at", maxAge: null },
+  { key: "pipeline", label: "Pipeline status", ts: "generated_at", maxAge: 45 },
+  { key: "vault_notes", label: "Vault notes", ts: "generated_at", maxAge: 45 },
+  { key: "recent_meetings", label: "Recent meetings", ts: "generated_at", maxAge: 45 },
+  { key: "online_presence", label: "Online presence", ts: "generated_at", maxAge: 45 },
+  { key: "daily_brief", label: "Daily brief", ts: "generated_at", maxAge: 60 * 26 },
+];
+
+function feedHealth(state, f) {
+  const d = state[f.key];
+  if (!d) return { level: "bad", note: "missing from state" };
+  if (d.status === "error" || d.status === "unavailable") return { level: "bad", note: d.error || d.status };
+  if (d.status === "empty" || d.status === "missing") return { level: "bad", note: "no data file" };
+  if (d.status === "pending") return { level: "warn", note: "loading" };
+  const ts = d[f.ts] || d.last_updated;
+  if (f.key === "triage" && d.stale) return { level: "warn", note: "stale", ts };
+  if (f.maxAge && ts) {
+    const ageMin = (Date.now() - new Date(ts).getTime()) / 60000;
+    if (ageMin > f.maxAge) return { level: "warn", note: "stale", ts };
+  }
+  return { level: "ok", note: "ok", ts };
+}
+
+function renderFeedHealth(state) {
+  const statusEl = document.getElementById("feeds-status");
+  const listEl = document.getElementById("feeds-list");
+  if (!statusEl || !listEl) return;
+  const rows = FEEDS.map((f) => ({ f, h: feedHealth(state, f) }));
+  const bad = rows.filter((r) => r.h.level !== "ok").length;
+  statusEl.textContent = bad ? `${bad} need attention` : "all feeds healthy";
+  setHtml(
+    listEl,
+    rows
+      .map(({ f, h }) => {
+        const cls = h.level === "bad" ? "urgency-urgent" : h.level === "warn" ? "urgency-action" : "";
+        const badge = h.level === "ok" ? "" : `<span class="urgency-badge ${cls}">${escapeHtml(h.note)}</span>`;
+        return `
+        <div class="triage-item ${cls}">
+          <div class="triage-tags">
+            <span class="triage-source">${escapeHtml(f.label)}</span>
+            ${badge}
+          </div>
+          <span class="triage-summary">${h.ts ? "updated " + escapeHtml(timeAgo(h.ts)) : escapeHtml(h.level === "ok" ? "" : h.note)}</span>
+        </div>`;
+      })
+      .join("")
+  );
+}
+
+/* ---------- tab badges ---------- */
+
+function setBadge(id, text, alert) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text ? String(text) : "";
+  el.classList.toggle("alert", !!alert);
+}
+
+function renderBadges(state) {
+  const triageItems = (state.triage && state.triage.items) || [];
+  const urgent = triageItems.filter((i) => (i.urgency || "").toLowerCase() === "urgent").length;
+  setBadge("badge-today", triageItems.length || "", urgent > 0);
+
+  const brief = state.daily_brief || {};
+  const briefToday = brief.generated_at && new Date(brief.generated_at).toDateString() === new Date().toDateString();
+  setBadge("badge-brief", briefToday ? "new" : "", false);
+
+  const meetings = (state.recent_meetings && state.recent_meetings.meetings) || [];
+  const unlogged = meetings.filter((m) => m.transcript_found && !m.written_up).length;
+  setBadge("badge-meetings", unlogged || "", unlogged > 0);
+
+  const pending = (state.online_presence && state.online_presence.pending_drafts) || [];
+  setBadge("badge-projects", pending.length || "", false);
+
+  const unhealthy = FEEDS.filter((f) => feedHealth(state, f).level !== "ok").length;
+  setBadge("badge-system", unhealthy ? "!" : "", unhealthy > 0);
+}
+
+/* ---------- page routing ---------- */
+
+const PAGES = ["today", "brief", "meetings", "projects", "system"];
+
+function showPage(name) {
+  if (!PAGES.includes(name)) name = "today";
+  document.querySelectorAll(".page").forEach((p) => {
+    p.hidden = p.dataset.page !== name;
+  });
+  document.querySelectorAll(".tab").forEach((t) => {
+    const on = t.dataset.page === name;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.title = `PA · ${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+}
+
+window.addEventListener("hashchange", () => showPage(location.hash.slice(1)));
+showPage(location.hash.slice(1));
+
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= PAGES.length) location.hash = PAGES[n - 1];
+});
+
+// Re-evaluate staleness badges/health periodically even without new state.
+setInterval(() => {
+  if (latestState) {
+    renderFeedHealth(latestState);
+    renderBadges(latestState);
+  }
+}, 30000);
+
+function stripWikilinks(s) {
+  return String(s || "").replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (m, t, a) => (a ? a.slice(1) : t));
+}

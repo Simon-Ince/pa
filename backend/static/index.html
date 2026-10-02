@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/style.css?v=18" />
+<link rel="stylesheet" href="/static/style.css?v=20" />
 <script>
 (function () {
   try {
@@ -37,20 +37,26 @@
     </div>
   </header>
 
-  <main class="main-stack">
-    <div class="band band-now">
-      <p class="band-label">Now</p>
-      <section class="panel panel-focus">
-        <div class="panel-header">
-          <span class="panel-index">01</span>
-          <h2 class="panel-title">Focus</h2>
-        </div>
-        <div class="panel-body">
-          <div id="focus-status" class="panel-substatus"></div>
-          <div id="focus-list" class="focus-list"></div>
-        </div>
-      </section>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <a class="tab" role="tab" href="#today" data-page="today"><span class="tab-key">1</span>Today<span class="tab-badge" id="badge-today"></span></a>
+    <a class="tab" role="tab" href="#brief" data-page="brief"><span class="tab-key">2</span>Brief<span class="tab-badge" id="badge-brief"></span></a>
+    <a class="tab" role="tab" href="#meetings" data-page="meetings"><span class="tab-key">3</span>Meetings<span class="tab-badge" id="badge-meetings"></span></a>
+    <a class="tab" role="tab" href="#projects" data-page="projects"><span class="tab-key">4</span>Projects<span class="tab-badge" id="badge-projects"></span></a>
+    <a class="tab" role="tab" href="#system" data-page="system"><span class="tab-key">5</span>System<span class="tab-badge" id="badge-system"></span></a>
+  </nav>
 
+  <main class="main-stack">
+    <div class="page" id="page-today" data-page="today">
+        <section class="panel panel-focus">
+          <div class="panel-header">
+            <span class="panel-index">01</span>
+            <h2 class="panel-title">Focus</h2>
+          </div>
+          <div class="panel-body">
+            <div id="focus-status" class="panel-substatus"></div>
+            <div id="focus-list" class="focus-list"></div>
+          </div>
+        </section>
       <div class="grid-row grid-row-now">
         <section class="panel panel-calendar">
           <div class="panel-header">
@@ -62,7 +68,6 @@
             <div id="calendar-list" class="panel-list"></div>
           </div>
         </section>
-
         <section class="panel panel-tasks">
           <div class="panel-header">
             <span class="panel-index">03</span>
@@ -73,7 +78,6 @@
             <div id="tasks-list" class="panel-list"></div>
           </div>
         </section>
-
         <section class="panel panel-signal">
           <div class="panel-header">
             <span class="panel-index">04</span>
@@ -88,23 +92,11 @@
       </div>
     </div>
 
-    <div class="band band-briefing">
-      <p class="band-label">Briefing</p>
+    <div class="page" id="page-brief" data-page="brief" hidden>
       <div class="grid-row grid-row-briefing">
-        <section class="panel panel-notes">
-          <div class="panel-header">
-            <span class="panel-index">05</span>
-            <h2 class="panel-title">Today's Note</h2>
-          </div>
-          <div class="panel-body">
-            <div id="notes-status" class="panel-substatus"></div>
-            <div id="notes-body" class="panel-list"></div>
-          </div>
-        </section>
-
         <section class="panel panel-brief">
           <div class="panel-header">
-            <span class="panel-index">06</span>
+            <span class="panel-index">01</span>
             <h2 class="panel-title">Daily Brief</h2>
           </div>
           <div class="panel-body">
@@ -112,15 +104,24 @@
             <div id="brief-body" class="panel-list"></div>
           </div>
         </section>
+        <section class="panel panel-notes">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2 class="panel-title">Today's Note</h2>
+          </div>
+          <div class="panel-body">
+            <div id="notes-status" class="panel-substatus"></div>
+            <div id="notes-body" class="panel-list"></div>
+          </div>
+        </section>
       </div>
     </div>
 
-    <div class="band band-context">
-      <p class="band-label">Context</p>
-      <div class="grid-row grid-row-context">
-        <section class="panel panel-meetings">
+    <div class="page" id="page-meetings" data-page="meetings" hidden>
+      <div class="grid-row">
+        <section class="panel panel-meetings panel-wide">
           <div class="panel-header">
-            <span class="panel-index">07</span>
+            <span class="panel-index">01</span>
             <h2 class="panel-title">Recent Meetings</h2>
           </div>
           <div class="panel-body">
@@ -128,10 +129,14 @@
             <div id="meetings-list" class="panel-list"></div>
           </div>
         </section>
+      </div>
+    </div>
 
+    <div class="page" id="page-projects" data-page="projects" hidden>
+      <div class="grid-row grid-row-projects">
         <section class="panel panel-projects">
           <div class="panel-header">
-            <span class="panel-index">08</span>
+            <span class="panel-index">01</span>
             <h2 class="panel-title">Active Projects</h2>
           </div>
           <div class="panel-body">
@@ -139,10 +144,9 @@
             <div id="projects-list" class="panel-list"></div>
           </div>
         </section>
-
         <section class="panel panel-presence">
           <div class="panel-header">
-            <span class="panel-index">09</span>
+            <span class="panel-index">02</span>
             <h2 class="panel-title">Online Presence</h2>
           </div>
           <div class="panel-body">
@@ -150,15 +154,29 @@
             <div id="presence-list" class="panel-list"></div>
           </div>
         </section>
+      </div>
+    </div>
 
+    <div class="page" id="page-system" data-page="system" hidden>
+      <div class="grid-row grid-row-system">
         <section class="panel panel-pipeline">
           <div class="panel-header">
-            <span class="panel-index">10</span>
+            <span class="panel-index">01</span>
             <h2 class="panel-title">Triage Pipeline</h2>
           </div>
           <div class="panel-body">
             <div id="pipeline-status" class="panel-substatus"></div>
             <div id="pipeline-list" class="panel-list"></div>
+          </div>
+        </section>
+        <section class="panel panel-feeds">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2 class="panel-title">Feed Health</h2>
+          </div>
+          <div class="panel-body">
+            <div id="feeds-status" class="panel-substatus"></div>
+            <div id="feeds-list" class="panel-list"></div>
           </div>
         </section>
       </div>
@@ -174,6 +192,6 @@
   </footer>
 </div>
 
-<script src="/static/app.js?v=18"></script>
+<script src="/static/app.js?v=20"></script>
 </body>
 </html>
