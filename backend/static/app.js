@@ -511,6 +511,27 @@ function render(state) {
   renderBadges(state);
 }
 
+function fmtRunTime(iso) {
+  const d = parseIso(iso);
+  if (!d) return iso || "?";
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleString([], sameDay
+    ? { hour: "2-digit", minute: "2-digit", hour12: false }
+    : { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function timeUntil(iso) {
+  const d = parseIso(iso);
+  if (!d) return "";
+  const m = Math.round((d.getTime() - Date.now()) / 60000);
+  if (m < 0) return `${-m}m late`;
+  if (m < 60) return `in ${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `in ${h}h ${m % 60}m` : `in ${Math.floor(h / 24)}d`;
+}
+
+const ROLE_LABEL = { collect: "Collect", triage: "Triage", brief: "Brief", close: "Day close", feeds: "Feeds", presence: "Presence", other: "Other" };
+
 function renderPipeline(pipeline) {
   const statusEl = document.getElementById("pipeline-status");
   const listEl = document.getElementById("pipeline-list");
@@ -523,35 +544,51 @@ function renderPipeline(pipeline) {
     return;
   }
   statusEl.classList.remove("error");
-  statusEl.textContent = "";
+  const jobs = pipeline.jobs || [];
+  const bad = pipeline.unhealthy || 0;
+  statusEl.textContent = bad ? `${bad} job${bad > 1 ? "s" : ""} need attention` : `${jobs.length} jobs healthy`;
 
-  const tier1 = pipeline.tier1 || {};
-  const tier2 = pipeline.tier2 || {};
-
-  function tierRow(label, t) {
-    const stateTag = t.state ? `<span class="triage-source">${escapeHtml(t.state)}</span>` : "";
-    const lastIso = t.last_run ? t.last_run.split(" ")[0] : "";
-    const fmtRun = (iso) => {
-      const d = parseIso(iso);
-      return d ? d.toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : iso || "?";
-    };
-    const lastRun = lastIso ? `${escapeHtml(fmtRun(lastIso))} (${escapeHtml(timeAgo(lastIso))})` : "never";
-    const isErr = t.last_run && t.last_run.includes("error");
-    return `
-      <div class="triage-item ${isErr ? "urgency-urgent" : ""}">
-        <div class="triage-tags">
-          <span class="triage-source">${escapeHtml(label)}</span>
-          ${stateTag}
-        </div>
-        <span class="triage-summary">last run: ${lastRun}${isErr ? " (failing)" : ""}<br/>next run: ${escapeHtml(t.next_run ? fmtRun(t.next_run) : "?")}${t.schedule ? ` · ${escapeHtml(t.schedule)}` : ""}</span>
+  let html = "";
+  const qd = pipeline.queue || {};
+  if (!qd.error && qd.waiting !== undefined) {
+    const triage = jobs.find((j) => j.role === "triage");
+    const oldest = qd.oldest_waiting ? ` · oldest ${timeAgo(qd.oldest_waiting)}` : "";
+    const next = triage && triage.next_run ? ` · next triage ${fmtRunTime(triage.next_run)} (${timeUntil(triage.next_run)})` : "";
+    const inflight = qd.in_flight ? ` · ${qd.in_flight} with the running triage` : "";
+    html += `
+      <div class="queue-block">
+        <div class="queue-count">${qd.waiting}</div>
+        <div class="queue-text"><strong>Chat messages waiting for triage</strong><br/>
+          from others, across ${qd.waiting_spaces || 0} space${qd.waiting_spaces === 1 ? "" : "s"}${oldest}${inflight}${next}</div>
       </div>`;
   }
 
-  let html = tierRow("TIER 1 (light sweep)", tier1) + tierRow("TIER 2 (heavy triage)", tier2);
-  if (pipeline.queue_note) {
-    html += `<div class="empty-state">${escapeHtml(pipeline.queue_note)}</div>`;
-  }
-  setHtml(listEl, html);
+  html += jobs
+    .map((j) => {
+      const failing = j.enabled && (j.failure_streak > 0 || (j.last_status && j.last_status !== "ok"));
+      const cls = failing || j.overdue ? "urgency-urgent" : !j.enabled ? "job-paused" : "";
+      const flags = [
+        !j.enabled ? `<span class="urgency-badge">paused</span>` : "",
+        j.overdue ? `<span class="urgency-badge urgency-urgent">overdue</span>` : "",
+        failing ? `<span class="urgency-badge urgency-urgent">${j.failure_streak > 1 ? j.failure_streak + "× " : ""}failing</span>` : "",
+        j.no_agent ? `<span class="urgency-badge">no model</span>` : "",
+      ].join("");
+      const last = j.last_run ? `${fmtRunTime(j.last_run)} (${timeAgo(j.last_run)})` : "never";
+      const next = j.enabled && j.next_run ? `${fmtRunTime(j.next_run)} (${timeUntil(j.next_run)})` : "—";
+      const err = failing && j.last_error ? `<div class="job-error">${escapeHtml(String(j.last_error).slice(0, 200))}</div>` : "";
+      return `
+      <div class="triage-item ${cls}">
+        <div class="triage-tags">
+          <span class="triage-source">${escapeHtml(ROLE_LABEL[j.role] || j.role)}</span>
+          ${flags}
+        </div>
+        <span class="triage-summary"><strong>${escapeHtml(j.name || j.id)}</strong>${j.description ? ` <span class="focus-detail">${escapeHtml(j.description)}</span>` : ""}<br/>
+          last ${escapeHtml(last)} · next ${escapeHtml(next)}</span>
+        ${err}
+      </div>`;
+    })
+    .join("");
+  setHtml(listEl, html || `<div class="empty-state">No jobs found.</div>`);
 }
 
 function renderVaultNotes(vaultNotes) {
@@ -609,19 +646,36 @@ function renderRecentMeetings(recentMeetings) {
       .map((m) => {
         const d = parseIso(m.start);
         const dateStr = d ? d.toLocaleDateString([], { month: "short", day: "numeric" }) : "";
-        const transcriptTag = m.transcript_found
-          ? `<span class="urgency-badge urgency-action">transcript</span>`
-          : `<span class="urgency-badge">no transcript</span>`;
-        const writtenTag = m.written_up ? `<span class="urgency-badge urgency-reply">logged</span>` : "";
+        const hasNotes = !!(m.notes_doc || m.transcript_found);
+        const notesTag = hasNotes
+          ? (m.notes_doc
+              ? `<a class="urgency-badge urgency-action" href="${escapeHtml(m.notes_doc)}" target="_blank" rel="noopener">gemini notes</a>`
+              : `<span class="urgency-badge urgency-action">gemini notes</span>`)
+          : "";
+        const loggedTag = m.added_to_note
+          ? `<span class="urgency-badge urgency-reply">written up</span>`
+          : m.in_weekly_note
+          ? `<span class="urgency-badge">mentioned</span>`
+          : "";
+        const pendingTag = m.day_close_overdue
+          ? `<span class="urgency-badge urgency-urgent">not processed</span>`
+          : m.awaiting_day_close
+          ? `<span class="urgency-badge">tonight's day close</span>`
+          : "";
+        const noteLink = m.weekly_note
+          ? `<div class="note-links"><a href="${escapeHtml(obsidianUrl(m.weekly_note))}">${escapeHtml(m.weekly_note.replace(/^.*\//, "").replace(/\.md$/, ""))}</a>${m.html_link ? `<a href="${escapeHtml(m.html_link)}" target="_blank" rel="noopener">calendar</a>` : ""}</div>`
+          : "";
         return `
         <div class="triage-item">
           <div class="triage-tags">
             <span class="triage-source">${escapeHtml(dateStr)}</span>
-            ${transcriptTag}
-            ${writtenTag}
+            ${notesTag}
+            ${loggedTag}
+            ${pendingTag}
           </div>
           <span class="triage-summary">${escapeHtml(m.summary)}${m.attendee_count ? ` <span class="focus-detail">${m.attendee_count} people</span>` : ""}</span>
-          ${(m.note_paths || []).length ? `<div class="note-links">${m.note_paths.map((np) => `<a href="${escapeHtml(obsidianUrl(np))}">${escapeHtml(np.replace(/^.*\//, "").replace(/\.md$/, ""))}</a>`).join("")}</div>` : ""}
+          ${m.outcome ? `<div class="meeting-outcome">${escapeHtml(m.outcome)}</div>` : ""}
+          ${noteLink}
         </div>`;
       })
       .join("")
@@ -921,14 +975,14 @@ function renderBadges(state) {
   const briefToday = brief.generated_at && new Date(brief.generated_at).toDateString() === new Date().toDateString();
   setBadge("badge-brief", briefToday ? "new" : "", false);
 
-  const meetings = (state.recent_meetings && state.recent_meetings.meetings) || [];
-  const unlogged = meetings.filter((m) => m.transcript_found && !m.written_up).length;
+  const unlogged = (state.recent_meetings && state.recent_meetings.unlogged_with_notes) || 0;
   setBadge("badge-meetings", unlogged || "", unlogged > 0);
 
   const pending = (state.online_presence && state.online_presence.pending_drafts) || [];
   setBadge("badge-projects", pending.length || "", false);
 
-  const unhealthy = FEEDS.filter((f) => feedHealth(state, f).level !== "ok").length;
+  const unhealthy =
+    FEEDS.filter((f) => feedHealth(state, f).level !== "ok").length + ((state.pipeline && state.pipeline.unhealthy) || 0);
   setBadge("badge-system", unhealthy ? "!" : "", unhealthy > 0);
 }
 

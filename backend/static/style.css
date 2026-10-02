@@ -251,8 +251,8 @@ html[data-theme="dark"] .theme-toggle-mark {
 .panel-projects { grid-column: span 8; }
 .panel-presence { grid-column: span 4; }
 
-.panel-pipeline { grid-column: span 6; }
-.panel-feeds { grid-column: span 6; }
+.panel-pipeline { grid-column: span 8; }
+.panel-feeds { grid-column: span 4; }
 
 /* ---------- tabs / pages ---------- */
 
@@ -918,3 +918,45 @@ a.focus-text:hover {
     height: 44px;
   }
 }
+
+/* ---------- system tab: queue + jobs ---------- */
+
+.queue-block {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border: var(--border-w) solid var(--border);
+  background: var(--muted);
+}
+.queue-count {
+  font-weight: 900;
+  font-size: 2.6rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+}
+.queue-text {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--fg);
+}
+.job-paused { opacity: 0.55; }
+.job-error {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--accent);
+}
+.meeting-outcome {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--fg);
+  opacity: 0.8;
+}
+a.urgency-badge { text-decoration: none; }
+a.urgency-badge:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }

@@ -33,9 +33,9 @@ HEARTBEAT_SECONDS = 25
 TRIAGE_DATA_DIR = os.environ.get("TRIAGE_DATA_DIR", "/data")
 
 LOCAL_TZ = ZoneInfo("Europe/London")
-TRIAGE_STALE_HOURS = 7
-WORK_HOURS_START = 8
-WORK_HOURS_END = 18
+# Message-triage cron (Hermes pa job 1d71c046b9ad) runs weekdays at these local times.
+TRIAGE_RUN_TIMES = [(6, 45), (12, 45)]
+TRIAGE_GRACE = timedelta(minutes=45)
 
 
 def now_iso() -> str:
@@ -203,21 +203,24 @@ def _parse_generated_at(generated_at: str | None) -> datetime | None:
 
 
 def _is_triage_stale(generated_at: str | None) -> bool:
-    """Stale = the snapshot is older than TRIAGE_STALE_HOURS *and* it's
-    currently within weekday work hours (no point flagging staleness at
-    2am — nothing's happened since the last run anyway).
+    """Stale = a scheduled triage run (TRIAGE_RUN_TIMES, weekdays, local
+    time) finished more than TRIAGE_GRACE ago without a newer snapshot.
+    Judged against the schedule rather than a fixed age, so a quiet
+    afternoon isn't flagged but a missed 06:45 run is.
     """
     gen = _parse_generated_at(generated_at)
     if gen is None:
         return False
-    now = datetime.now(timezone.utc)
-    age_hours = (now - gen).total_seconds() / 3600
-    if age_hours < TRIAGE_STALE_HOURS:
-        return False
-    local_now = now.astimezone(LOCAL_TZ)
-    if local_now.weekday() >= 5:
-        return False
-    return WORK_HOURS_START <= local_now.hour < WORK_HOURS_END
+    now_local = datetime.now(timezone.utc).astimezone(LOCAL_TZ)
+    day = now_local
+    for _ in range(7):
+        if day.weekday() < 5:
+            for hh, mm in reversed(TRIAGE_RUN_TIMES):
+                slot = day.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                if slot + TRIAGE_GRACE <= now_local:
+                    return gen < slot
+        day = (day - timedelta(days=1)).replace(hour=23, minute=59)
+    return False
 
 
 def _triage_item_link(item: dict) -> str | None:
