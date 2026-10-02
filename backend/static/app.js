@@ -499,6 +499,233 @@ function render(state) {
   if (state.gmail) renderSignal(state.gmail, state.triage || { status: "pending" });
   if (state.calendar) renderCalendar(state.calendar);
   if (state.ticktick) renderTasks(state.ticktick);
+  if (state.pipeline) renderPipeline(state.pipeline);
+  if (state.vault_notes) {
+    renderVaultNotes(state.vault_notes);
+    renderProjects(state.vault_notes);
+  }
+  if (state.recent_meetings) renderRecentMeetings(state.recent_meetings);
+  if (state.online_presence) renderOnlinePresence(state.online_presence);
+  if (state.daily_brief) renderDailyBrief(state.daily_brief);
+}
+
+function renderPipeline(pipeline) {
+  const statusEl = document.getElementById("pipeline-status");
+  const listEl = document.getElementById("pipeline-list");
+  if (!statusEl || !listEl) return;
+
+  if (pipeline.status === "error" || pipeline.status === "empty") {
+    statusEl.textContent = pipeline.status === "empty" ? "no pipeline data yet" : "error — " + (pipeline.error || "unknown");
+    statusEl.classList.toggle("error", pipeline.status === "error");
+    setHtml(listEl, `<div class="empty-state">Pipeline status unavailable.</div>`);
+    return;
+  }
+  statusEl.classList.remove("error");
+  statusEl.textContent = "";
+
+  const tier1 = pipeline.tier1 || {};
+  const tier2 = pipeline.tier2 || {};
+
+  function tierRow(label, t) {
+    const stateTag = t.state ? `<span class="triage-source">${escapeHtml(t.state)}</span>` : "";
+    const lastRun = t.last_run ? escapeHtml(t.last_run.split(" ")[0]) : "never";
+    const isErr = t.last_run && t.last_run.includes("error");
+    return `
+      <div class="triage-item ${isErr ? "urgency-urgent" : ""}">
+        <div class="triage-tags">
+          <span class="triage-source">${escapeHtml(label)}</span>
+          ${stateTag}
+        </div>
+        <span class="triage-summary">last run: ${lastRun}${isErr ? " (failing)" : ""}<br/>next run: ${escapeHtml(t.next_run || "?")}</span>
+      </div>`;
+  }
+
+  let html = tierRow("TIER 1 (light sweep)", tier1) + tierRow("TIER 2 (heavy triage)", tier2);
+  if (pipeline.queue_note) {
+    html += `<div class="empty-state">${escapeHtml(pipeline.queue_note)}</div>`;
+  }
+  setHtml(listEl, html);
+}
+
+function renderVaultNotes(vaultNotes) {
+  const statusEl = document.getElementById("notes-status");
+  const bodyEl = document.getElementById("notes-body");
+  if (!statusEl || !bodyEl) return;
+
+  const today = vaultNotes.today || {};
+  if (today.status === "weekend") {
+    statusEl.textContent = today.day_name || "";
+    setHtml(bodyEl, `<div class="empty-state">${escapeHtml(today.note || "No weekly note on weekends.")}</div>`);
+    return;
+  }
+  if (today.status === "missing" || today.status === "empty") {
+    statusEl.textContent = today.day_name || "";
+    setHtml(bodyEl, `<div class="empty-state">${escapeHtml(today.note || "Nothing logged yet today.")}</div>`);
+    return;
+  }
+  if (today.status === "error") {
+    statusEl.textContent = "error";
+    statusEl.classList.add("error");
+    setHtml(bodyEl, `<div class="empty-state">${escapeHtml(today.error || "unknown error")}</div>`);
+    return;
+  }
+  statusEl.classList.remove("error");
+  statusEl.textContent = today.day_name || "";
+  // content is markdown-ish plain text with [[wikilinks]] — strip brackets for display, keep readable
+  const text = (today.content || "").replace(/\[\[([^\]|]+)(\|[^\]]+)?\]\]/g, (m, target, alias) => alias ? alias.slice(1) : target);
+  setHtml(bodyEl, text ? `<div class="notes-text">${escapeHtml(text).replace(/\n/g, "<br/>")}</div>` : `<div class="empty-state">Nothing logged yet today.</div>`);
+}
+
+function renderRecentMeetings(recentMeetings) {
+  const statusEl = document.getElementById("meetings-status");
+  const listEl = document.getElementById("meetings-list");
+  if (!statusEl || !listEl) return;
+
+  if (recentMeetings.status === "error" || recentMeetings.status === "empty") {
+    statusEl.textContent = recentMeetings.status === "empty" ? "no data yet" : "error — " + (recentMeetings.error || "unknown");
+    statusEl.classList.toggle("error", recentMeetings.status === "error");
+    setHtml(listEl, `<div class="empty-state">Meeting history unavailable.</div>`);
+    return;
+  }
+  statusEl.classList.remove("error");
+  const meetings = recentMeetings.meetings || [];
+  statusEl.textContent = `${meetings.length} recent`;
+
+  if (!meetings.length) {
+    setHtml(listEl, `<div class="empty-state">No recent meetings with attendees found.</div>`);
+    return;
+  }
+
+  setHtml(
+    listEl,
+    meetings
+      .map((m) => {
+        const d = parseIso(m.start);
+        const dateStr = d ? d.toLocaleDateString([], { month: "short", day: "numeric" }) : "";
+        const transcriptTag = m.transcript_found
+          ? `<span class="urgency-badge urgency-action">transcript</span>`
+          : `<span class="urgency-badge">no transcript</span>`;
+        const writtenTag = m.written_up ? `<span class="urgency-badge urgency-reply">logged</span>` : "";
+        return `
+        <div class="triage-item">
+          <div class="triage-tags">
+            <span class="triage-source">${escapeHtml(dateStr)}</span>
+            ${transcriptTag}
+            ${writtenTag}
+          </div>
+          <span class="triage-summary">${escapeHtml(m.summary)}</span>
+        </div>`;
+      })
+      .join("")
+  );
+}
+
+function renderProjects(vaultNotes) {
+  const statusEl = document.getElementById("projects-status");
+  const listEl = document.getElementById("projects-list");
+  if (!statusEl || !listEl) return;
+
+  const projects = vaultNotes.projects || [];
+  statusEl.textContent = `${projects.length} tracked`;
+
+  if (!projects.length) {
+    setHtml(listEl, `<div class="empty-state">No project notes found.</div>`);
+    return;
+  }
+
+  setHtml(
+    listEl,
+    projects
+      .slice(0, 12)
+      .map((p) => {
+        const d = parseIso(p.modified);
+        const modStr = d ? timeAgo(p.modified) : "";
+        return `
+        <div class="triage-item">
+          <div class="triage-tags">
+            <span class="triage-source">${escapeHtml(modStr)}</span>
+          </div>
+          <span class="triage-summary"><strong>${escapeHtml(p.name)}</strong>${p.description ? " — " + escapeHtml(p.description) : ""}</span>
+        </div>`;
+      })
+      .join("")
+  );
+}
+
+function renderOnlinePresence(onlinePresence) {
+  const statusEl = document.getElementById("presence-status");
+  const listEl = document.getElementById("presence-list");
+  if (!statusEl || !listEl) return;
+
+  if (onlinePresence.status === "error" || onlinePresence.status === "missing") {
+    statusEl.textContent = "unavailable";
+    statusEl.classList.add("error");
+    setHtml(listEl, `<div class="empty-state">Online presence note not found.</div>`);
+    return;
+  }
+  statusEl.classList.remove("error");
+  const pending = onlinePresence.pending_drafts || [];
+  statusEl.textContent = `${pending.length} pending`;
+
+  let html = "";
+  if (onlinePresence.last_posted) {
+    html += `<div class="list-group-label">Last posted</div>`;
+    html += `<div class="triage-item"><span class="triage-summary">${escapeHtml(onlinePresence.last_posted)}</span></div>`;
+  }
+  if (pending.length) {
+    html += `<div class="list-group-label">Pending</div>`;
+    html += pending
+      .map((p) => `<div class="triage-item"><span class="triage-summary">${escapeHtml(p)}</span></div>`)
+      .join("");
+  }
+  if (!html) {
+    html = `<div class="empty-state">Nothing tracked yet.</div>`;
+  }
+  setHtml(listEl, html);
+}
+
+function renderDailyBrief(brief) {
+  const statusEl = document.getElementById("brief-status");
+  const bodyEl = document.getElementById("brief-body");
+  if (!statusEl || !bodyEl) return;
+
+  if (brief.status === "error" || brief.status === "empty" || brief.status === "missing") {
+    statusEl.textContent = "unavailable";
+    statusEl.classList.add("error");
+    setHtml(bodyEl, `<div class="empty-state">No brief yet today.</div>`);
+    return;
+  }
+  statusEl.classList.remove("error");
+  statusEl.textContent = brief.generated_at ? timeAgo(brief.generated_at) : "";
+
+  let html = "";
+  const highlights = brief.highlights || [];
+  if (highlights.length) {
+    html += `<div class="list-group-label">Flagged</div>`;
+    html += highlights
+      .map(
+        (h) =>
+          `<div class="triage-item urgency-urgent"><span class="triage-summary">${escapeHtml(h)}</span></div>`
+      )
+      .join("");
+  }
+  if (brief.audio_path) {
+    html += `<div class="list-group-label">Audio</div>`;
+    html += `<audio class="brief-audio" controls preload="none"><source src="/api/daily-brief/audio" type="audio/mpeg"></audio>`;
+  }
+  if (brief.summary) {
+    const paras = escapeHtml(brief.summary)
+      .split(/\n\n+/)
+      .filter(Boolean)
+      .map((p) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
+      .join("");
+    html += `<div class="list-group-label">Summary</div>`;
+    html += `<div class="brief-prose">${paras}</div>`;
+  }
+  if (!html) {
+    html = `<div class="empty-state">Nothing tracked yet.</div>`;
+  }
+  setHtml(bodyEl, html);
 }
 
 function tickFooters() {

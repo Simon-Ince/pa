@@ -18,6 +18,7 @@ from .state import (
     ticktick_loop,
     triage_loop,
 )
+from . import pa_extensions
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("pa.main")
@@ -36,6 +37,11 @@ async def lifespan(app: FastAPI):
     _background_tasks.append(asyncio.create_task(triage_loop(state)))
     _background_tasks.append(asyncio.create_task(ticktick_loop(state)))
     _background_tasks.append(asyncio.create_task(focus_loop(state)))
+    _background_tasks.append(asyncio.create_task(pa_extensions.pipeline_loop(state, asyncio)))
+    _background_tasks.append(asyncio.create_task(pa_extensions.vault_notes_loop(state, asyncio)))
+    _background_tasks.append(asyncio.create_task(pa_extensions.recent_meetings_loop(state, asyncio)))
+    _background_tasks.append(asyncio.create_task(pa_extensions.online_presence_loop(state, asyncio)))
+    _background_tasks.append(asyncio.create_task(pa_extensions.daily_brief_loop(state, asyncio)))
     logger.info("started %d background polling loops", len(_background_tasks))
     yield
     for t in _background_tasks:
@@ -86,3 +92,22 @@ async def api_stream(request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+AUDIO_CACHE_DIR = os.environ.get("AUDIO_CACHE_DIR", "/audio")
+
+
+@app.get("/api/daily-brief/audio")
+async def daily_brief_audio():
+    """Serves the mp3 the daily-brief cron generated, by basename lookup in
+    the read-only /audio mount (host path in daily_brief.json won't exist
+    inside the container, only its filename does)."""
+    snap = (await state.snapshot_dict()).get("daily_brief") or {}
+    audio_path = snap.get("audio_path")
+    if not audio_path:
+        return JSONResponse(status_code=404, content={"error": "no audio available"})
+    filename = os.path.basename(audio_path)
+    local_path = os.path.join(AUDIO_CACHE_DIR, filename)
+    if not os.path.isfile(local_path):
+        return JSONResponse(status_code=404, content={"error": "audio file not found"})
+    return FileResponse(local_path, media_type="audio/mpeg")

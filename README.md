@@ -118,14 +118,31 @@ Hermes does not need to dump those into the snapshot.
   card. See the TickTick section below for the data contract and one
   non-obvious API quirk. Polled every ~2.5 minutes (no need for SSE-fast
   refresh on todos).
+- **TODAY'S NOTE** — today's section of the current Obsidian weekly note
+  (`vault_notes.json`, written by Hermes). Prose, not a list.
+- **DAILY BRIEF** — the morning brief (`daily_brief.json`): flagged
+  highlights, optional audio, then the summary as readable paragraphs.
+- **RECENT MEETINGS** — last few meetings with attendees, plus whether a
+  transcript / write-up exists (`recent_meetings.json`).
+- **ACTIVE PROJECTS** — tracked project notes from the vault snapshot
+  (`vault_notes.json` `projects`).
+- **ONLINE PRESENCE** — last posted item and pending drafts
+  (`online_presence.json`).
+- **TRIAGE PIPELINE** — Tier 1 / Tier 2 cron health (last run, next run,
+  failing flag) from `pipeline_status.json`. System status, not work.
 
-Below FOCUS, the three panels sit in a 12-column grid sized to their real
-content volume rather than uniform equal boxes: CALENDAR (narrower,
-timeline-shaped) spans 4 columns, TASKS (curated overdue + today) spans 5,
-SIGNAL (flagged triage items) spans 3. On the wide grid the page is locked
-to the viewport and lists scroll inside a panel only if they overflow that
-column. Below 1100px (stacked / portrait) the page scrolls instead — no
-nested scrollbars.
+The page is a scrolling briefing, not a viewport-locked wall of boxes.
+Panels size to their content and the page scrolls as one document — no
+nested list scrollbars. Three bands, in PA order:
+
+1. **Now** — FOCUS (full width), then CALENDAR / TASKS / SIGNAL in the
+   existing 4/5/3 split.
+2. **Briefing** — TODAY'S NOTE (7) and DAILY BRIEF (5), given the width
+   prose actually needs.
+3. **Context** — meetings, projects, presence, pipeline in 6/6 pairs.
+
+A labelled band sits above each group so the ten panels don't compete as
+equal widgets. Below 1100px everything stacks to a single column.
 
 Footer shows per-source freshness: inbox/calendar/tasks are when this
 app last polled those APIs; **triage is `generated_at`** (when the triage
@@ -216,8 +233,9 @@ logic; only the visual language changed:
 - **Structure**: 4px black borders, `border-radius: 0`, **no drop
   shadows**. Each panel is a framed block with a muted header strip and
   gutters between sections so they don't read as one white field.
-  Numbered section labels (`01`–`04`) in red. Asymmetric 4/5/3 column
-  split unchanged.
+  Numbered section labels (`01`–`10`) in red. Page scrolls; panels are
+  content-height. Now / Briefing / Context bands replace the old
+  viewport-locked nested-scroll grid.
 - **Texture**: 24px grid on the page, 16px dot matrix on SIGNAL, a faint
   noise overlay on the light canvas (not on dark).
 - **Now/next** calendar rows invert to black fill / white type rather than

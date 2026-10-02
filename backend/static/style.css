@@ -47,8 +47,9 @@ html[data-theme="dark"] {
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font);
@@ -91,13 +92,11 @@ html[data-theme="dark"] .swiss-noise {
   max-width: 1560px;
   margin: 0 auto;
   padding: 28px 32px 16px;
-  height: 100%;
-  min-height: 0;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
   z-index: 1;
-  overflow: hidden;
 }
 
 /* ---------- header ---------- */
@@ -210,24 +209,47 @@ html[data-theme="dark"] .theme-toggle-mark {
 /* ---------- layout ---------- */
 
 .main-stack {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.band {
   display: flex;
   flex-direction: column;
   gap: var(--panel-gap);
 }
 
+.band-label {
+  margin: 0;
+  padding: 0;
+  font-weight: 900;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--page-fg);
+  opacity: 0.4;
+}
+
 .grid-row {
-  flex: 1;
-  min-height: 0;
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: var(--panel-gap);
+  align-items: start;
 }
 
 .panel-calendar { grid-column: span 4; }
 .panel-tasks { grid-column: span 5; }
 .panel-signal { grid-column: span 3; }
+
+.panel-notes { grid-column: span 7; }
+.panel-brief { grid-column: span 5; }
+
+.panel-meetings,
+.panel-projects,
+.panel-presence,
+.panel-pipeline { grid-column: span 6; }
 
 /* ---------- panel base ---------- */
 
@@ -237,13 +259,8 @@ html[data-theme="dark"] .theme-toggle-mark {
   border-radius: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
+  min-width: 0;
   position: relative;
-}
-
-.panel-focus {
-  flex: 0 0 auto;
 }
 
 .panel-header {
@@ -279,20 +296,10 @@ html[data-theme="dark"] .theme-toggle-mark {
   padding: 18px 20px 20px;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  flex: 1;
-  overflow: hidden;
 }
 
-.panel-substatus {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--fg);
-  opacity: 0.45;
-  margin-bottom: 14px;
-  min-height: 1.1em;
+.panel-substatus:empty {
+  display: none;
 }
 
 .panel-substatus.error {
@@ -301,13 +308,9 @@ html[data-theme="dark"] .theme-toggle-mark {
 }
 
 .panel-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding-right: 2px;
 }
 
 .scroll::-webkit-scrollbar {
@@ -790,40 +793,40 @@ a.focus-text:hover {
   display: none;
 }
 
+/* ---------- prose (notes + brief) ---------- */
+
+.notes-text,
+.brief-prose {
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+  max-width: 72ch;
+}
+
+.brief-prose p {
+  margin: 0 0 0.9em;
+}
+
+.brief-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.brief-audio {
+  width: 100%;
+  margin: 4px 0 8px;
+  height: 36px;
+}
+
 /* ---------- responsive ---------- */
 
 @media (max-width: 1100px) {
-  /* Stacked / portrait: one page scroll, no nested list scroll. */
-  html, body {
-    height: auto;
-    overflow: auto;
-  }
-  .wrap {
-    height: auto;
-    overflow: visible;
-  }
-  .main-stack,
-  .grid-row {
-    flex: none;
-    min-height: auto;
-  }
   .grid-row {
     grid-template-columns: 1fr;
   }
-  .panel-calendar,
-  .panel-tasks,
-  .panel-signal {
+  .grid-row > .panel {
     grid-column: span 1;
-  }
-  .panel,
-  .panel-body {
-    overflow: visible;
-    min-height: auto;
-  }
-  .panel-list {
-    overflow: visible;
-    max-height: none;
-    flex: none;
   }
 }
 

@@ -60,12 +60,13 @@ visible 24px grid. Prior restyles (vaporwave → low-poly Y2K → pastel →
 Bauhaus → Swiss) are expected to continue; keep panel/data logic decoupled
 from styling so a restyle never has to touch backend code.
 
-Panels: **FOCUS** (full-width hero, ranked "what to look at now"),
-**TODAY/TOMORROW** (filtered calendar), **SIGNAL** (unread-since-last-
-triage count + triage-cron-flagged important items, NOT a raw inbox list —
-Simon explicitly rejected a raw unread list as noisy), **TASKS** (TickTick
-todos). A prior "OPEN LOOPS" panel (Obsidian weekly-note checkboxes) was
-removed in v3 — don't re-add it, TickTick is Simon's real task system now.
+Panels, in three scrolling bands (page scroll, content-height panels, no
+nested list scrollbars): **Now** is FOCUS (full-width hero) plus
+TODAY/TOMORROW, TASKS, SIGNAL. **Briefing** is Today's Note and Daily
+Brief. **Context** is Recent Meetings, Active Projects, Online Presence,
+and Triage Pipeline. SIGNAL is unread-since-last-triage + triage-flagged
+items, NOT a raw inbox list. A prior "OPEN LOOPS" panel (Obsidian weekly-
+note checkboxes) was removed in v3 — don't re-add it.
 
 ## Credentials & mounts — do not break these
 

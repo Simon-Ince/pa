@@ -67,6 +67,11 @@ class AppState:
                 "last_updated": None,
             },
             "focus": {"status": "pending", "items": [], "last_updated": None},
+            "pipeline": {"status": "pending", "last_updated": None},
+            "vault_notes": {"status": "pending", "last_updated": None},
+            "recent_meetings": {"status": "pending", "last_updated": None},
+            "online_presence": {"status": "pending", "last_updated": None},
+            "daily_brief": {"status": "pending", "last_updated": None},
         }
         self._lock = asyncio.Lock()
         self._subscribers: set[asyncio.Queue] = set()

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/style.css?v=14" />
+<link rel="stylesheet" href="/static/style.css?v=18" />
 <script>
 (function () {
   try {
@@ -38,51 +38,130 @@
   </header>
 
   <main class="main-stack">
-    <section class="panel panel-focus">
-      <div class="panel-header">
-        <span class="panel-index">01</span>
-        <h2 class="panel-title">Focus</h2>
-      </div>
-      <div class="panel-body">
-        <div id="focus-status" class="panel-substatus"></div>
-        <div id="focus-list" class="focus-list"></div>
-      </div>
-    </section>
-
-    <div class="grid-row">
-      <section class="panel panel-calendar">
+    <div class="band band-now">
+      <p class="band-label">Now</p>
+      <section class="panel panel-focus">
         <div class="panel-header">
-          <span class="panel-index">02</span>
-          <h2 class="panel-title">Today / Tomorrow</h2>
+          <span class="panel-index">01</span>
+          <h2 class="panel-title">Focus</h2>
         </div>
         <div class="panel-body">
-          <div id="calendar-status" class="panel-substatus"></div>
-          <div id="calendar-list" class="panel-list scroll"></div>
+          <div id="focus-status" class="panel-substatus"></div>
+          <div id="focus-list" class="focus-list"></div>
         </div>
       </section>
 
-      <section class="panel panel-tasks">
-        <div class="panel-header">
-          <span class="panel-index">03</span>
-          <h2 class="panel-title">Tasks</h2>
-        </div>
-        <div class="panel-body">
-          <div id="tasks-status" class="panel-substatus"></div>
-          <div id="tasks-list" class="panel-list scroll"></div>
-        </div>
-      </section>
+      <div class="grid-row grid-row-now">
+        <section class="panel panel-calendar">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2 class="panel-title">Today / Tomorrow</h2>
+          </div>
+          <div class="panel-body">
+            <div id="calendar-status" class="panel-substatus"></div>
+            <div id="calendar-list" class="panel-list"></div>
+          </div>
+        </section>
 
-      <section class="panel panel-signal">
-        <div class="panel-header">
-          <span class="panel-index">04</span>
-          <h2 class="panel-title">Signal</h2>
-          <div id="signal-count" class="signal-count-chip"></div>
-        </div>
-        <div class="panel-body swiss-dots">
-          <div id="signal-status" class="panel-substatus"></div>
-          <div id="signal-list" class="panel-list scroll"></div>
-        </div>
-      </section>
+        <section class="panel panel-tasks">
+          <div class="panel-header">
+            <span class="panel-index">03</span>
+            <h2 class="panel-title">Tasks</h2>
+          </div>
+          <div class="panel-body">
+            <div id="tasks-status" class="panel-substatus"></div>
+            <div id="tasks-list" class="panel-list"></div>
+          </div>
+        </section>
+
+        <section class="panel panel-signal">
+          <div class="panel-header">
+            <span class="panel-index">04</span>
+            <h2 class="panel-title">Signal</h2>
+            <div id="signal-count" class="signal-count-chip"></div>
+          </div>
+          <div class="panel-body swiss-dots">
+            <div id="signal-status" class="panel-substatus"></div>
+            <div id="signal-list" class="panel-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="band band-briefing">
+      <p class="band-label">Briefing</p>
+      <div class="grid-row grid-row-briefing">
+        <section class="panel panel-notes">
+          <div class="panel-header">
+            <span class="panel-index">05</span>
+            <h2 class="panel-title">Today's Note</h2>
+          </div>
+          <div class="panel-body">
+            <div id="notes-status" class="panel-substatus"></div>
+            <div id="notes-body" class="panel-list"></div>
+          </div>
+        </section>
+
+        <section class="panel panel-brief">
+          <div class="panel-header">
+            <span class="panel-index">06</span>
+            <h2 class="panel-title">Daily Brief</h2>
+          </div>
+          <div class="panel-body">
+            <div id="brief-status" class="panel-substatus"></div>
+            <div id="brief-body" class="panel-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="band band-context">
+      <p class="band-label">Context</p>
+      <div class="grid-row grid-row-context">
+        <section class="panel panel-meetings">
+          <div class="panel-header">
+            <span class="panel-index">07</span>
+            <h2 class="panel-title">Recent Meetings</h2>
+          </div>
+          <div class="panel-body">
+            <div id="meetings-status" class="panel-substatus"></div>
+            <div id="meetings-list" class="panel-list"></div>
+          </div>
+        </section>
+
+        <section class="panel panel-projects">
+          <div class="panel-header">
+            <span class="panel-index">08</span>
+            <h2 class="panel-title">Active Projects</h2>
+          </div>
+          <div class="panel-body">
+            <div id="projects-status" class="panel-substatus"></div>
+            <div id="projects-list" class="panel-list"></div>
+          </div>
+        </section>
+
+        <section class="panel panel-presence">
+          <div class="panel-header">
+            <span class="panel-index">09</span>
+            <h2 class="panel-title">Online Presence</h2>
+          </div>
+          <div class="panel-body">
+            <div id="presence-status" class="panel-substatus"></div>
+            <div id="presence-list" class="panel-list"></div>
+          </div>
+        </section>
+
+        <section class="panel panel-pipeline">
+          <div class="panel-header">
+            <span class="panel-index">10</span>
+            <h2 class="panel-title">Triage Pipeline</h2>
+          </div>
+          <div class="panel-body">
+            <div id="pipeline-status" class="panel-substatus"></div>
+            <div id="pipeline-list" class="panel-list"></div>
+          </div>
+        </section>
+      </div>
     </div>
   </main>
 
@@ -95,6 +174,6 @@
   </footer>
 </div>
 
-<script src="/static/app.js?v=15"></script>
+<script src="/static/app.js?v=18"></script>
 </body>
 </html>

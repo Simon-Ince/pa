@@ -9,12 +9,15 @@ services:
       - "${GOOGLE_CLIENT_SECRET_PATH:-/Users/simonince/.hermes/profiles/pa/google_client_secret.json}:/secrets/google_client_secret.json:ro"
       - "${DASHBOARD_DATA_PATH:-/Users/simonince/.hermes/profiles/pa/dashboard_data}:/data:ro"
       - "${TICKTICK_TOKEN_PATH:-/Users/simonince/.hermes/profiles/pa/ticktick_token.json}:/secrets/ticktick_token.json:ro"
+      - "${AUDIO_CACHE_PATH:-/Users/simonince/.hermes/profiles/pa/cache/audio}:/audio:ro"
+      - "${VAULT_PATH:-/Users/simon/Library/Mobile Documents/iCloud~md~obsidian/Documents/Obsidian Vault}:/vault:ro"
     environment:
       - TZ=Europe/London
       - GOOGLE_TOKEN_FILE=/secrets/google_token.json
       - GOOGLE_CLIENT_SECRET_FILE=/secrets/google_client_secret.json
       - TRIAGE_DATA_DIR=/data
       - TICKTICK_TOKEN_FILE=/secrets/ticktick_token.json
+      - AUDIO_CACHE_DIR=/audio
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz', timeout=3).status == 200 else 1)"]
