@@ -60,15 +60,16 @@ visible 24px grid. Prior restyles (vaporwave → low-poly Y2K → pastel →
 Bauhaus → Swiss) are expected to continue; keep panel/data logic decoupled
 from styling so a restyle never has to touch backend code.
 
-Panels are split across five hash-routed tabs (v6), one page visible at a
-time, keys 1–5 switch tabs: **Today** (#today) is FOCUS plus
-TODAY/TOMORROW, TASKS, SIGNAL. **Brief** (#brief) is Daily Brief and
-Today's Note. **Meetings** (#meetings) is Recent Meetings with Obsidian
+Panels are split across six hash-routed tabs (v6), one page visible at a
+time, keys 1–6 switch tabs: **Today** (#today) is DECIDE, SLACK/LINEAR,
+then TODAY/TOMORROW, TASKS, SIGNAL. **Brief** (#brief) is Daily Brief and
+Today's Note. **Technology** (#technology) is the full Slack and Linear
+digests. **Meetings** (#meetings) is Recent Meetings with Obsidian
 links to the notes each was logged in. **Projects** (#projects) is Active
 Projects and Online Presence. **System** (#system) is Triage Pipeline and
 Feed Health (per-feed freshness, flags stale/missing feeds). Tab badges
-summarise each page (flagged count, new brief, unlogged transcripts,
-pending drafts, unhealthy feeds). To add a page: a `<nav>` tab + a
+summarise each page (decide count, new brief, tech items that need Simon,
+unlogged transcripts, pending drafts, unhealthy feeds). To add a page: a `<nav>` tab + a
 `.page[data-page]` block in index.html and the name in `PAGES` in app.js;
 new feeds also get a row in `FEEDS` so Feed Health covers them. SIGNAL is
 unread-since-last-triage + triage-flagged items, NOT a raw inbox list. A

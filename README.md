@@ -69,24 +69,17 @@ Hermes does not need to dump those into the snapshot.
 
 ## What each panel shows
 
-- **FOCUS** — full-width hero strip at the top, the "what should I actually
-  look at right now" list. Rendered as a vertical numbered 1–5 list (rank
-  in a geometric square), not wrapping chips. Computed server-side every
-  ~20s by a plain heuristic in `backend/app/focus.py` (no LLM call —
-  deliberately kept inspectable). It combines the other three sources into
-  a single ranked list, capped at 5 items, deduped by text, ranked in this
-  order (highest priority first):
-  1. triage items flagged `urgent`
-  2. calendar meetings starting within the next 60 minutes
-  3. overdue TickTick tasks
-  4. TickTick tasks due today
-  5. triage items flagged as needing a `reply`
-  Each item is tagged with the source it came from (`SIGNAL` / `MEETING` /
-  `TASK`) so it's traceable back to the panel it was derived from. `SIGNAL`
-  is the only source that uses Swiss red as a fill. FOCUS is the "now"
-  list; the columns below are the supporting queues, so some items may also
-  appear there. If nothing qualifies it shows "Nothing urgent — clear to
-  focus" rather than an empty box.
+- **DECIDE** — full-width hero on Today. The morning brief's `decisions`
+  array (`decide` and `reply`, then any `waiting`), each row the action,
+  why, and a link. This is the judgment the brief agent already made.
+  `fyi` is not shown. The older FOCUS heuristic still runs in the API and
+  is not on the page.
+- **SLACK / LINEAR** — technology-side digests (`slack_digest.json`,
+  `linear_digest.json`). Today shows Slack as-is and the Linear items that
+  need Simon, are blocked, or are at risk, plus each team's active /
+  blocked / shipped counts. The Technology tab shows the full Linear list,
+  including shipped and started, and the team notes. A quiet Slack window
+  ("nothing new") is a healthy empty digest, not an error.
 - **TODAY / TOMORROW** — Calendar events from now through the end of
   tomorrow, with all-day "working location" markers filtered out (see
   below). Each event includes `start` and `end`. The list is split into
@@ -131,26 +124,30 @@ Hermes does not need to dump those into the snapshot.
 - **TRIAGE PIPELINE** — Tier 1 / Tier 2 cron health (last run, next run,
   failing flag) from `pipeline_status.json`. System status, not work.
 
-**v6: tabs.** The app outgrew a single page, so panels now live on five
-hash-routed tabs (bookmarkable, keys 1–5 switch). One page is visible at a
+**v6: tabs.** The app outgrew a single page, so panels now live on six
+hash-routed tabs (bookmarkable, keys 1–6 switch). One page is visible at a
 time; each scrolls as one document with content-height panels.
 
-1. **Today** (`#today`) — FOCUS (full width), then CALENDAR / TASKS /
-   SIGNAL in the 4/5/3 split. The default landing page.
-2. **Brief** (`#brief`) — DAILY BRIEF (7) and TODAY'S NOTE (5).
-3. **Meetings** (`#meetings`) — RECENT MEETINGS full width, each with
+1. **Today** (`#today`) — DECIDE, then SLACK / LINEAR, then CALENDAR /
+   TASKS / SIGNAL. The default landing page.
+2. **Brief** (`#brief`) — DAILY BRIEF (audio and transcript; the decision
+   list is not repeated here when `decisions` is present) and TODAY'S NOTE.
+3. **Technology** (`#technology`) — full Slack digest and full Linear
+   digest.
+4. **Meetings** (`#meetings`) — RECENT MEETINGS full width, each with
    Obsidian links to the notes it was logged in.
-4. **Projects** (`#projects`) — ACTIVE PROJECTS (8, all of them, names
+5. **Projects** (`#projects`) — ACTIVE PROJECTS (8, all of them, names
    open in Obsidian) and ONLINE PRESENCE (4).
-5. **System** (`#system`) — TRIAGE PIPELINE and FEED HEALTH, which checks
+6. **System** (`#system`) — TRIAGE PIPELINE and FEED HEALTH, which checks
    every feed's own timestamp against a max age and flags stale/missing
-   ones.
+   ones. Slack and Linear digests go stale after 20 hours.
 
-Tab badges summarise the hidden pages: triage-flagged count on Today (red
-if any are urgent), "new" on Brief when today's brief exists, transcripts
-not yet logged on Meetings, pending drafts on Projects, "!" on System when
-any feed is unhealthy. Below 1100px panels stack and the tab bar scrolls
-horizontally.
+Tab badges summarise the hidden pages: decide/reply count on Today (red if
+any are `decide`), "new" on Brief when today's brief exists, Slack and
+Linear items that need Simon or are blocked/incidents on Technology,
+transcripts not yet logged on Meetings, pending drafts on Projects, "!" on
+System when any feed is unhealthy. Below 1100px panels stack and the tab
+bar scrolls horizontally.
 
 Footer shows per-source freshness: inbox/calendar/tasks are when this
 app last polled those APIs; **triage is `generated_at`** (when the triage
@@ -321,6 +318,26 @@ mounted into the container at `/data/triage_snapshot.json`. Expected shape:
 
 If the file is missing, empty, or fails to parse, the panel shows a clean
 empty/error state — the app never crashes because of it.
+
+## Slack and Linear digests
+
+Same folder, same read-only mount. Each file degrades on its own.
+
+`slack_digest.json`: `generated_at`, `status` (`ok` / `empty` / `error`),
+`window`, `items[]` of `{ id, kind, title, summary, action, needs_simon,
+channel, who, when, link }`. `kind` is `incident`, `decision`, `blocker`,
+`ask`, or `fyi`. An `ok` file with an empty `items` array is a quiet
+window, not a failure.
+
+`linear_digest.json`: `generated_at`, `status`, `items[]` of `{ id, kind,
+team, title, summary, action, needs_simon, state, assignee, updated, link }`,
+and `teams[]` of `{ name, in_progress, blocked, shipped_since_yesterday,
+note }`. `kind` is `needs_simon`, `blocked`, `shipped`, `started`, or
+`at_risk`.
+
+`daily_brief.json` may also include `decisions[]` of `{ id, kind, title,
+action, why, when, source, link }`. `kind` is `decide`, `reply`, `waiting`,
+or `fyi`. Today renders `decide`, `reply`, and `waiting`.
 
 ## TickTick (new in v2)
 

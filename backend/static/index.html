@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/style.css?v=21" />
+<link rel="stylesheet" href="/static/style.css?v=27" />
 <script>
 (function () {
   try {
@@ -40,27 +40,50 @@
   <nav class="tabs" role="tablist" aria-label="Sections">
     <a class="tab" role="tab" href="#today" data-page="today"><span class="tab-key">1</span>Today<span class="tab-badge" id="badge-today"></span></a>
     <a class="tab" role="tab" href="#brief" data-page="brief"><span class="tab-key">2</span>Brief<span class="tab-badge" id="badge-brief"></span></a>
-    <a class="tab" role="tab" href="#meetings" data-page="meetings"><span class="tab-key">3</span>Meetings<span class="tab-badge" id="badge-meetings"></span></a>
-    <a class="tab" role="tab" href="#projects" data-page="projects"><span class="tab-key">4</span>Projects<span class="tab-badge" id="badge-projects"></span></a>
-    <a class="tab" role="tab" href="#system" data-page="system"><span class="tab-key">5</span>System<span class="tab-badge" id="badge-system"></span></a>
+    <a class="tab" role="tab" href="#technology" data-page="technology"><span class="tab-key">3</span>Technology<span class="tab-badge" id="badge-technology"></span></a>
+    <a class="tab" role="tab" href="#meetings" data-page="meetings"><span class="tab-key">4</span>Meetings<span class="tab-badge" id="badge-meetings"></span></a>
+    <a class="tab" role="tab" href="#projects" data-page="projects"><span class="tab-key">5</span>Projects<span class="tab-badge" id="badge-projects"></span></a>
+    <a class="tab" role="tab" href="#system" data-page="system"><span class="tab-key">6</span>System<span class="tab-badge" id="badge-system"></span></a>
   </nav>
 
   <main class="main-stack">
     <div class="page" id="page-today" data-page="today">
-        <section class="panel panel-focus">
+        <section class="panel panel-decide">
           <div class="panel-header">
             <span class="panel-index">01</span>
-            <h2 class="panel-title">Focus</h2>
+            <h2 class="panel-title">Decide</h2>
           </div>
           <div class="panel-body">
-            <div id="focus-status" class="panel-substatus"></div>
-            <div id="focus-list" class="focus-list"></div>
+            <div id="decide-status" class="panel-substatus"></div>
+            <div id="decide-list" class="focus-list"></div>
           </div>
         </section>
+      <div class="grid-row">
+        <section class="panel panel-tech-slack">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2 class="panel-title">Slack</h2>
+          </div>
+          <div class="panel-body">
+            <div id="today-slack-status" class="panel-substatus"></div>
+            <div id="today-slack-list" class="panel-list"></div>
+          </div>
+        </section>
+        <section class="panel panel-tech-linear">
+          <div class="panel-header">
+            <span class="panel-index">03</span>
+            <h2 class="panel-title">Linear</h2>
+          </div>
+          <div class="panel-body">
+            <div id="today-linear-status" class="panel-substatus"></div>
+            <div id="today-linear-list" class="panel-list"></div>
+          </div>
+        </section>
+      </div>
       <div class="grid-row grid-row-now">
         <section class="panel panel-calendar">
           <div class="panel-header">
-            <span class="panel-index">02</span>
+            <span class="panel-index">04</span>
             <h2 class="panel-title">Today / Tomorrow</h2>
           </div>
           <div class="panel-body">
@@ -70,7 +93,7 @@
         </section>
         <section class="panel panel-tasks">
           <div class="panel-header">
-            <span class="panel-index">03</span>
+            <span class="panel-index">05</span>
             <h2 class="panel-title">Tasks</h2>
           </div>
           <div class="panel-body">
@@ -80,7 +103,7 @@
         </section>
         <section class="panel panel-signal">
           <div class="panel-header">
-            <span class="panel-index">04</span>
+            <span class="panel-index">06</span>
             <h2 class="panel-title">Signal</h2>
             <div id="signal-count" class="signal-count-chip"></div>
           </div>
@@ -112,6 +135,31 @@
           <div class="panel-body">
             <div id="notes-status" class="panel-substatus"></div>
             <div id="notes-body" class="panel-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="page" id="page-technology" data-page="technology" hidden>
+      <div class="grid-row">
+        <section class="panel panel-tech-slack">
+          <div class="panel-header">
+            <span class="panel-index">01</span>
+            <h2 class="panel-title">Slack</h2>
+          </div>
+          <div class="panel-body">
+            <div id="tech-slack-status" class="panel-substatus"></div>
+            <div id="tech-slack-list" class="panel-list"></div>
+          </div>
+        </section>
+        <section class="panel panel-tech-linear">
+          <div class="panel-header">
+            <span class="panel-index">02</span>
+            <h2 class="panel-title">Linear</h2>
+          </div>
+          <div class="panel-body">
+            <div id="tech-linear-status" class="panel-substatus"></div>
+            <div id="tech-linear-list" class="panel-list"></div>
           </div>
         </section>
       </div>
@@ -192,6 +240,6 @@
   </footer>
 </div>
 
-<script src="/static/app.js?v=21"></script>
+<script src="/static/app.js?v=27"></script>
 </body>
 </html>

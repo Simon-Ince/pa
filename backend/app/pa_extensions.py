@@ -53,6 +53,14 @@ def read_daily_brief() -> dict:
     return _read_json("daily_brief.json")
 
 
+def read_slack_digest() -> dict:
+    return _read_json("slack_digest.json")
+
+
+def read_linear_digest() -> dict:
+    return _read_json("linear_digest.json")
+
+
 async def pipeline_loop(state, asyncio_module, sleep_seconds=EXTRA_POLL_SECONDS):
     while True:
         try:
@@ -105,4 +113,26 @@ async def daily_brief_loop(state, asyncio_module, sleep_seconds=EXTRA_POLL_SECON
         except Exception as e:
             logger.exception("daily brief poll failed")
             await state.update("daily_brief", {"status": "error", "error": str(e), "last_updated": now_iso()})
+        await asyncio_module.sleep(sleep_seconds)
+
+
+async def slack_digest_loop(state, asyncio_module, sleep_seconds=EXTRA_POLL_SECONDS):
+    while True:
+        try:
+            data = await asyncio_module.to_thread(read_slack_digest)
+            await state.update("slack_digest", data)
+        except Exception as e:
+            logger.exception("slack digest poll failed")
+            await state.update("slack_digest", {"status": "error", "error": str(e), "last_updated": now_iso()})
+        await asyncio_module.sleep(sleep_seconds)
+
+
+async def linear_digest_loop(state, asyncio_module, sleep_seconds=EXTRA_POLL_SECONDS):
+    while True:
+        try:
+            data = await asyncio_module.to_thread(read_linear_digest)
+            await state.update("linear_digest", data)
+        except Exception as e:
+            logger.exception("linear digest poll failed")
+            await state.update("linear_digest", {"status": "error", "error": str(e), "last_updated": now_iso()})
         await asyncio_module.sleep(sleep_seconds)

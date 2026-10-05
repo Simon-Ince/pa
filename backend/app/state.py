@@ -72,6 +72,8 @@ class AppState:
             "recent_meetings": {"status": "pending", "last_updated": None},
             "online_presence": {"status": "pending", "last_updated": None},
             "daily_brief": {"status": "pending", "last_updated": None},
+            "slack_digest": {"status": "pending", "last_updated": None},
+            "linear_digest": {"status": "pending", "last_updated": None},
         }
         self._lock = asyncio.Lock()
         self._subscribers: set[asyncio.Queue] = set()

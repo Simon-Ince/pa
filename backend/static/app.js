@@ -355,6 +355,7 @@ const FOCUS_RANK_CLASS = ["rank-yellow", "rank-blue", "rank-red"];
 function renderFocus(focus) {
   const statusEl = document.getElementById("focus-status");
   const listEl = document.getElementById("focus-list");
+  if (!statusEl || !listEl) return;
 
   if (focus.status === "error") {
     statusEl.textContent = "Focus computation error — " + (focus.error || "unknown error");
@@ -506,7 +507,12 @@ function render(state) {
   }
   if (state.recent_meetings) renderRecentMeetings(state.recent_meetings);
   if (state.online_presence) renderOnlinePresence(state.online_presence);
-  if (state.daily_brief) renderDailyBrief(state.daily_brief);
+  if (state.daily_brief) {
+    renderDailyBrief(state.daily_brief);
+    renderDecisions(state.daily_brief);
+  }
+  if (state.slack_digest) renderSlack(state.slack_digest);
+  if (state.linear_digest) renderLinear(state.linear_digest);
   renderFeedHealth(state);
   renderBadges(state);
 }
@@ -763,19 +769,23 @@ function renderDailyBrief(brief) {
   statusEl.textContent = brief.generated_at ? timeAgo(brief.generated_at) : "";
 
   let html = "";
-  const highlights = brief.highlights || [];
+  const highlights = brief.decisions && brief.decisions.length ? [] : (brief.highlights || []);
   if (highlights.length) {
-    html += `<div class="list-group-label">Flagged</div>`;
+    html += `<div class="list-group-label">Flagged · ${highlights.length}</div>`;
+    html += `<div class="item-stack">`;
     html += highlights
       .map(
         (h) =>
           `<div class="triage-item urgency-urgent"><span class="triage-summary">${escapeHtml(h)}</span></div>`
       )
       .join("");
+    html += `</div>`;
   }
   if (brief.audio_path) {
+    const filename = String(brief.audio_path).split(/[/\\]/).pop();
+    const src = `/api/daily-brief/audio/${encodeURIComponent(filename)}`;
     html += `<div class="list-group-label">Audio</div>`;
-    html += `<audio class="brief-audio" controls preload="none"><source src="/api/daily-brief/audio" type="audio/mpeg"></audio>`;
+    html += `<audio class="brief-audio" controls preload="metadata" src="${src}"></audio>`;
   }
   if (brief.summary) {
     const paras = escapeHtml(brief.summary)
@@ -789,7 +799,205 @@ function renderDailyBrief(brief) {
   if (!html) {
     html = `<div class="empty-state">Nothing tracked yet.</div>`;
   }
-  setHtml(bodyEl, html);
+  if (setHtml(bodyEl, html)) bindBriefAudio(bodyEl);
+}
+
+const LINEAR_GLANCE = ["needs_simon", "blocked", "at_risk"];
+const LINEAR_ORDER = ["needs_simon", "blocked", "at_risk", "started", "shipped"];
+const SLACK_ORDER = ["incident", "ask", "blocker", "decision", "fyi"];
+const KIND_LABEL = {
+  decide: "Decide",
+  reply: "Reply",
+  waiting: "Waiting",
+  fyi: "Note",
+  needs_simon: "Needs you",
+  blocked: "Blocked",
+  at_risk: "At risk",
+  started: "Started",
+  shipped: "Shipped",
+  incident: "Incident",
+  ask: "Ask",
+  blocker: "Blocker",
+  decision: "Decision",
+};
+
+function kindTag(kind) {
+  const label = KIND_LABEL[kind] || kind || "";
+  const hot = kind === "decide" || kind === "needs_simon" || kind === "incident" || kind === "blocked";
+  return `<span class="focus-tag ${hot ? "tag-signal" : "tag-task"}">${escapeHtml(label)}</span>`;
+}
+
+function fmtWhen(iso) {
+  const d = parseIso(iso);
+  if (!d) return "";
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) + (sameDay ? "" : " " + d.toLocaleDateString([], { month: "short", day: "numeric" }));
+}
+
+function feedUnavailable(data, emptyText) {
+  if (!data || data.status === "pending") return { error: false, text: data && data.status === "pending" ? "loading" : "" };
+  if (data.status === "error" || data.status === "unavailable") return { error: true, text: data.error || "unavailable" };
+  if (data.status === "empty" || data.status === "missing") return { error: true, text: emptyText };
+  return null;
+}
+
+function renderDecisions(brief) {
+  const statusEl = document.getElementById("decide-status");
+  const listEl = document.getElementById("decide-list");
+  if (!statusEl || !listEl) return;
+  const problem = feedUnavailable(brief, "No brief yet today.");
+  if (problem) {
+    statusEl.textContent = problem.text;
+    statusEl.classList.toggle("error", problem.error);
+    setHtml(listEl, problem.error ? `<div class="empty-state">${escapeHtml(problem.text)}</div>` : "");
+    return;
+  }
+  statusEl.classList.remove("error");
+  const decisions = brief.decisions || [];
+  const ranked = decisions.filter((d) => d.kind === "decide" || d.kind === "reply");
+  const waiting = decisions.filter((d) => d.kind === "waiting");
+  statusEl.textContent = brief.generated_at ? timeAgo(brief.generated_at) : "";
+  if (!ranked.length && !waiting.length) {
+    setHtml(listEl, `<div class="empty-state">Nothing that needs you.</div>`);
+    return;
+  }
+  const row = (d, n) => {
+    const title = d.link
+      ? `<a href="${escapeHtml(d.link)}" target="_blank" rel="noopener" class="focus-text">${escapeHtml(d.title || "")}</a>`
+      : `<span class="focus-text">${escapeHtml(d.title || "")}</span>`;
+    return `
+      <div class="focus-item">
+        <span class="focus-rank ${n === 1 ? "" : "rank-blue"}">${n || ""}</span>
+        ${kindTag(d.kind)}
+        <div class="decision-copy">
+          ${title}
+          ${d.action ? `<div class="decision-action">${escapeHtml(d.action)}</div>` : ""}
+          ${d.why ? `<div class="decision-why">${escapeHtml(d.why)}</div>` : ""}
+        </div>
+        ${d.when ? `<span class="focus-detail">${escapeHtml(fmtWhen(d.when))}</span>` : ""}
+      </div>`;
+  };
+  let html = ranked.map((d, i) => row(d, i + 1)).join("");
+  if (waiting.length) {
+    html += `<div class="list-group-label">Waiting</div>`;
+    html += waiting.map((d) => row(d, 0)).join("");
+  }
+  setHtml(listEl, html);
+}
+
+function renderSlackInto(digest, statusId, listId) {
+  const statusEl = document.getElementById(statusId);
+  const listEl = document.getElementById(listId);
+  if (!statusEl || !listEl) return;
+  const problem = feedUnavailable(digest, "No Slack digest yet.");
+  if (problem) {
+    statusEl.textContent = problem.text;
+    statusEl.classList.toggle("error", problem.error);
+    setHtml(listEl, problem.error ? `<div class="empty-state">${escapeHtml(problem.text)}</div>` : "");
+    return;
+  }
+  statusEl.classList.remove("error");
+  const items = digest.items || [];
+  statusEl.textContent = digest.generated_at ? timeAgo(digest.generated_at) : "";
+  if (!items.length) {
+    setHtml(listEl, `<div class="empty-state">${escapeHtml(digest.window || "Nothing new in Slack.")}</div>`);
+    return;
+  }
+  const ordered = [...items].sort((a, b) => SLACK_ORDER.indexOf(a.kind) - SLACK_ORDER.indexOf(b.kind));
+  setHtml(listEl, ordered.map(digestRow).join(""));
+}
+
+function renderSlack(digest) {
+  renderSlackInto(digest, "today-slack-status", "today-slack-list");
+  renderSlackInto(digest, "tech-slack-status", "tech-slack-list");
+}
+
+function digestRow(item) {
+  const title = item.link
+    ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title || "")}</a>`
+    : escapeHtml(item.title || "");
+  const who = (item.who || []).filter(Boolean).join(", ");
+  const meta = [item.channel, item.team, item.assignee, who, item.state].filter(Boolean).join(" · ");
+  return `
+    <div class="triage-item ${item.needs_simon || item.kind === "incident" || item.kind === "blocked" ? "urgency-urgent" : ""}">
+      <div class="triage-tags">${kindTag(item.kind)}</div>
+      <span class="triage-summary"><strong>${title}</strong></span>
+      ${item.summary ? `<div class="meeting-outcome">${escapeHtml(item.summary)}</div>` : ""}
+      ${item.action ? `<div class="decision-action">${escapeHtml(item.action)}</div>` : ""}
+      ${meta ? `<div class="decision-why">${escapeHtml(meta)}</div>` : ""}
+    </div>`;
+}
+
+function teamGrid(teams, withNotes) {
+  if (!teams || !teams.length) return "";
+  return `<div class="team-grid">${teams.map((t) => `
+    <div class="team-cell">
+      <div class="team-name">${escapeHtml(t.name || "")}</div>
+      <div class="team-stats">
+        <span>${t.in_progress || 0} active</span>
+        <span class="${t.blocked ? "is-blocked" : ""}">${t.blocked || 0} blocked</span>
+        <span>${t.shipped_since_yesterday || 0} shipped</span>
+      </div>
+      ${withNotes && t.note ? `<div class="team-note">${escapeHtml(t.note)}</div>` : ""}
+    </div>`).join("")}</div>`;
+}
+
+function coveredByDecision(item, decisions) {
+  const id = String(item.id || "").toLowerCase();
+  const link = item.link || "";
+  return decisions.some((d) => {
+    const decisionId = String(d.id || "").toLowerCase();
+    return (id && decisionId.includes(id)) || (link && d.link === link);
+  });
+}
+
+function renderLinearInto(digest, statusId, listId, glance) {
+  const statusEl = document.getElementById(statusId);
+  const listEl = document.getElementById(listId);
+  if (!statusEl || !listEl) return;
+  const problem = feedUnavailable(digest, "No Linear digest yet.");
+  if (problem) {
+    statusEl.textContent = problem.text;
+    statusEl.classList.toggle("error", problem.error);
+    setHtml(listEl, problem.error ? `<div class="empty-state">${escapeHtml(problem.text)}</div>` : "");
+    return;
+  }
+  statusEl.classList.remove("error");
+  statusEl.textContent = digest.generated_at ? timeAgo(digest.generated_at) : "";
+  const decisions = glance && latestState && latestState.daily_brief ? (latestState.daily_brief.decisions || []) : [];
+  const items = (digest.items || []).filter((item) => {
+    if (!glance) return true;
+    if (!LINEAR_GLANCE.includes(item.kind)) return false;
+    return !coveredByDecision(item, decisions);
+  });
+  const ordered = [...items].sort((a, b) => {
+    const ai = LINEAR_ORDER.indexOf(a.kind);
+    const bi = LINEAR_ORDER.indexOf(b.kind);
+    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+  });
+  let html = teamGrid(digest.teams, !glance);
+  if (!ordered.length && !html) {
+    html = `<div class="empty-state">Nothing moving in Linear.</div>`;
+  } else {
+    html += ordered.map(digestRow).join("");
+  }
+  setHtml(listEl, html);
+}
+
+function renderLinear(digest) {
+  renderLinearInto(digest, "today-linear-status", "today-linear-list", true);
+  renderLinearInto(digest, "tech-linear-status", "tech-linear-list", false);
+}
+
+function bindBriefAudio(bodyEl) {
+  const audio = bodyEl.querySelector("audio.brief-audio");
+  if (!audio) return;
+  audio.addEventListener("error", () => {
+    const note = document.createElement("div");
+    note.className = "empty-state";
+    note.textContent = "Audio file could not be played.";
+    audio.replaceWith(note);
+  });
 }
 
 function tickFooters() {
@@ -914,6 +1122,8 @@ const FEEDS = [
   { key: "recent_meetings", label: "Recent meetings", ts: "generated_at", maxAge: 45 },
   { key: "online_presence", label: "Online presence", ts: "generated_at", maxAge: 45 },
   { key: "daily_brief", label: "Daily brief", ts: "generated_at", maxAge: 60 * 26 },
+  { key: "slack_digest", label: "Slack digest", ts: "generated_at", maxAge: 60 * 20 },
+  { key: "linear_digest", label: "Linear digest", ts: "generated_at", maxAge: 60 * 20 },
 ];
 
 function feedHealth(state, f) {
@@ -967,13 +1177,19 @@ function setBadge(id, text, alert) {
 }
 
 function renderBadges(state) {
-  const triageItems = (state.triage && state.triage.items) || [];
-  const urgent = triageItems.filter((i) => (i.urgency || "").toLowerCase() === "urgent").length;
-  setBadge("badge-today", triageItems.length || "", urgent > 0);
+  const decisions = (state.daily_brief && state.daily_brief.decisions) || [];
+  const ranked = decisions.filter((d) => d.kind === "decide" || d.kind === "reply");
+  setBadge("badge-today", ranked.length || "", ranked.some((d) => d.kind === "decide"));
 
   const brief = state.daily_brief || {};
   const briefToday = brief.generated_at && new Date(brief.generated_at).toDateString() === new Date().toDateString();
   setBadge("badge-brief", briefToday ? "new" : "", false);
+
+  const slackItems = (state.slack_digest && state.slack_digest.items) || [];
+  const linearItems = (state.linear_digest && state.linear_digest.items) || [];
+  const techHot = slackItems.filter((i) => i.needs_simon || i.kind === "incident").length
+    + linearItems.filter((i) => i.needs_simon || i.kind === "blocked").length;
+  setBadge("badge-technology", techHot || "", techHot > 0);
 
   const unlogged = (state.recent_meetings && state.recent_meetings.unlogged_with_notes) || 0;
   setBadge("badge-meetings", unlogged || "", unlogged > 0);
@@ -988,7 +1204,7 @@ function renderBadges(state) {
 
 /* ---------- page routing ---------- */
 
-const PAGES = ["today", "brief", "meetings", "projects", "system"];
+const PAGES = ["today", "brief", "technology", "meetings", "projects", "system"];
 
 function showPage(name) {
   if (!PAGES.includes(name)) name = "today";
@@ -1001,6 +1217,10 @@ function showPage(name) {
     t.setAttribute("aria-selected", on ? "true" : "false");
   });
   document.title = `PA · ${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+  const active = document.querySelector(".tab.active");
+  if (active && active.scrollIntoView) {
+    active.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }
 }
 
 window.addEventListener("hashchange", () => showPage(location.hash.slice(1)));
