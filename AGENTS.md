@@ -51,14 +51,18 @@ are kept in the repo root as a design-decision paper trail — each documents
 one iteration's brief. They're reference material, not living docs; if you
 change behavior, update **README.md**, not the old SPEC files.
 
-## Current state (as of v5)
+## Current state (as of v5, themes added)
 
-Visual style: **Swiss International (International Typographic Style)** —
-Inter, black/white/muted plus a single Swiss red `#FF3000` used only as a
+Default visual style is still **Swiss International** — Inter,
+black/white/muted plus a single Swiss red `#FF3000` used only as a
 signal, 4px black rules, no drop shadows, numbered section labels, a
-visible 24px grid. Prior restyles (vaporwave → low-poly Y2K → pastel →
-Bauhaus → Swiss) are expected to continue; keep panel/data logic decoupled
-from styling so a restyle never has to touch backend code.
+visible 24px grid. The header switches among Swiss, Night, Bloom, and
+Lamp via `html[data-theme]` and the tokens in `style.css` (choice in
+`localStorage` key `pa-theme`). A new theme is a token block plus any
+small overrides; don't fork panel markup per theme. Prior restyles
+(vaporwave → low-poly Y2K → pastel → Bauhaus → Swiss) are expected to
+continue; keep panel/data logic decoupled from styling so a restyle
+never has to touch backend code.
 
 Panels are split across six hash-routed tabs (v6), one page visible at a
 time, keys 1–6 switch tabs: **Today** (#today) is DECIDE, SLACK/LINEAR,

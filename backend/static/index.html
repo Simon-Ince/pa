@@ -4,32 +4,42 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/static/style.css?v=27" />
 <script>
 (function () {
   try {
+    var legacy = { light: "swiss", dark: "night" };
+    var themes = ["swiss", "night", "bloom", "lamp"];
     var t = localStorage.getItem("pa-theme");
-    if (t !== "dark" && t !== "light") {
-      t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    if (legacy[t]) t = legacy[t];
+    if (themes.indexOf(t) === -1) {
+      t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "swiss";
     }
     document.documentElement.setAttribute("data-theme", t);
   } catch (e) {}
 })();
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;700;900&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/static/style.css?v=29" />
 </head>
 <body>
 <div class="swiss-noise" aria-hidden="true"></div>
 <div class="wrap swiss-grid">
   <header class="banner">
     <h1 class="visually-hidden">Dashboard</h1>
-    <div id="clock" class="clock">--:--:--</div>
+    <div class="banner-lead">
+      <div id="clock" class="clock">--:--:--</div>
+      <p id="nowline" class="nowline" aria-live="polite"></p>
+    </div>
     <div class="banner-right">
-      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Switch to dark mode">
-        <span class="theme-toggle-mark" aria-hidden="true"></span>
-      </button>
+      <div class="theme-switch" role="radiogroup" aria-label="Theme. Press T to cycle.">
+        <span class="theme-current" id="theme-current">Swiss</span>
+        <button type="button" class="theme-swatch" role="radio" data-theme-choice="swiss" aria-label="Swiss" aria-checked="false"><span class="swatch"></span></button>
+        <button type="button" class="theme-swatch" role="radio" data-theme-choice="night" aria-label="Night" aria-checked="false"><span class="swatch"></span></button>
+        <button type="button" class="theme-swatch" role="radio" data-theme-choice="bloom" aria-label="Bloom" aria-checked="false"><span class="swatch"></span></button>
+        <button type="button" class="theme-swatch" role="radio" data-theme-choice="lamp" aria-label="Lamp" aria-checked="false"><span class="swatch"></span></button>
+      </div>
       <div class="conn-status">
         <span id="conn-dot" class="dot amber"></span>
         <span id="conn-label">connecting</span>
@@ -240,6 +250,6 @@
   </footer>
 </div>
 
-<script src="/static/app.js?v=27"></script>
+<script src="/static/app.js?v=29"></script>
 </body>
 </html>

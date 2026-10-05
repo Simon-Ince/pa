@@ -515,6 +515,7 @@ function render(state) {
   if (state.linear_digest) renderLinear(state.linear_digest);
   renderFeedHealth(state);
   renderBadges(state);
+  renderNowline();
 }
 
 function fmtRunTime(iso) {
@@ -1000,6 +1001,109 @@ function bindBriefAudio(bodyEl) {
   });
 }
 
+function feedReady(data) {
+  if (!data) return false;
+  const s = data.status;
+  return s !== "pending" && s !== "error" && s !== "unavailable" && s !== "empty" && s !== "missing";
+}
+
+function clipTitle(title) {
+  const t = String(title || "Untitled").replace(/\s+/g, " ").trim();
+  if (t.length <= 42) return t;
+  return t.slice(0, 41).trimEnd() + "…";
+}
+
+function nowlineModel(state) {
+  const parts = [];
+  let calm = false;
+  const cal = state.calendar;
+  if (feedReady(cal)) {
+    const now = new Date();
+    const nowMs = now.getTime();
+    const todayKey = localDateKeyFromDate(now);
+    const todayTimed = (cal.items || []).filter((e) => !e.all_day && eventDateKey(e) === todayKey);
+    const inProgress = todayTimed.filter((e) => eventIsInProgress(e, nowMs));
+    if (inProgress.length) {
+      const soonest = inProgress.slice().sort((a, b) => {
+        const ae = parseIso(a.end);
+        const be = parseIso(b.end);
+        return (ae ? ae.getTime() : Infinity) - (be ? be.getTime() : Infinity);
+      })[0];
+      const ends = fmtCountdown(soonest.start, soonest.end, false);
+      parts.push({
+        text: inProgress.length === 1
+          ? "In " + clipTitle(soonest.title)
+          : "In " + inProgress.length + " meetings",
+      });
+      if (ends) parts.push({ text: inProgress.length === 1 ? ends : "soonest " + ends });
+    } else {
+      const next = todayTimed
+        .filter((e) => {
+          const start = parseIso(e.start);
+          return start && start.getTime() > nowMs;
+        })
+        .sort((a, b) => parseIso(a.start) - parseIso(b.start))[0];
+      if (next) {
+        const start = parseIso(next.start);
+        const at = start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        const starts = fmtCountdown(next.start, next.end, false);
+        parts.push({ text: clipTitle(next.title) + " at " + at });
+        if (starts) parts.push({ text: starts });
+      } else if (todayTimed.length) {
+        parts.push({ text: "Done for today" });
+        calm = true;
+      } else {
+        parts.push({ text: "Nothing scheduled today" });
+        calm = true;
+      }
+    }
+  } else if (cal && (cal.status === "unavailable" || cal.status === "error")) {
+    parts.push({ text: "Calendar unavailable" });
+  }
+
+  if (feedReady(state.daily_brief)) {
+    const n = (state.daily_brief.decisions || []).filter((d) => d.kind === "decide" || d.kind === "reply").length;
+    if (n > 0) {
+      parts.push({ text: n === 1 ? "1 to decide" : n + " to decide", hot: true });
+      calm = false;
+    }
+  } else {
+    calm = false;
+  }
+
+  if (feedReady(state.ticktick)) {
+    const todayStr = new Date().toDateString();
+    const n = (state.ticktick.items || []).filter((t) => isOverdueTask(t, todayStr)).length;
+    if (n > 0) {
+      parts.push({ text: n === 1 ? "1 overdue" : n + " overdue", hot: true });
+      calm = false;
+    }
+  } else {
+    calm = false;
+  }
+
+  if (calm && parts.length === 1 && parts[0].text === "Nothing scheduled today") {
+    parts[0] = { text: "Deck is clear" };
+  }
+  return { parts, clear: calm && parts.length > 0 };
+}
+
+function renderNowline() {
+  const el = document.getElementById("nowline");
+  if (!el || !latestState) return;
+  const model = nowlineModel(latestState);
+  const html = model.parts.map((part, i) => {
+    const sep = i ? '<span class="nowline-sep" aria-hidden="true">·</span>' : "";
+    const cls = part.hot ? ' class="nowline-hot"' : "";
+    return sep + "<span" + cls + ">" + escapeHtml(part.text) + "</span>";
+  }).join("");
+  const sig = (model.clear ? "1" : "0") + html;
+  if (el.dataset.rendered === sig) return;
+  el.dataset.rendered = sig;
+  el.classList.toggle("is-clear", model.clear);
+  el.innerHTML = html;
+}
+
 function tickFooters() {
   if (!latestState) return;
   const gmail = latestState.gmail || {};
@@ -1019,6 +1123,7 @@ function tickFooters() {
 setInterval(() => {
   tickCountdowns();
   tickFooters();
+  renderNowline();
 }, 1000);
 
 function setConnStatus(status) {
@@ -1071,34 +1176,55 @@ document.addEventListener("click", (event) => {
 });
 
 const THEME_KEY = "pa-theme";
+const THEMES = ["swiss", "night", "bloom", "lamp"];
+const THEME_LABEL = { swiss: "Swiss", night: "Night", bloom: "Bloom", lamp: "Lamp" };
+const THEME_LEGACY = { light: "swiss", dark: "night" };
 
 function currentTheme() {
   const attr = document.documentElement.getAttribute("data-theme");
-  if (attr === "dark" || attr === "light") return attr;
+  if (THEMES.includes(attr)) return attr;
   try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light") return saved;
+    const saved = THEME_LEGACY[localStorage.getItem(THEME_KEY)] || localStorage.getItem(THEME_KEY);
+    if (THEMES.includes(saved)) return saved;
   } catch (e) {}
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "night" : "swiss";
 }
 
 function applyTheme(theme) {
+  if (!THEMES.includes(theme)) theme = "swiss";
   document.documentElement.setAttribute("data-theme", theme);
   try {
     localStorage.setItem(THEME_KEY, theme);
   } catch (e) {}
-  const btn = document.getElementById("theme-toggle");
-  if (btn) {
-    btn.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
-  }
+  const label = document.getElementById("theme-current");
+  if (label) label.textContent = THEME_LABEL[theme];
+  document.querySelectorAll(".theme-swatch").forEach((btn) => {
+    btn.setAttribute("aria-checked", btn.getAttribute("data-theme-choice") === theme ? "true" : "false");
+  });
+}
+
+function cycleTheme(step) {
+  const i = THEMES.indexOf(currentTheme());
+  const next = (i + step + THEMES.length) % THEMES.length;
+  applyTheme(THEMES[next]);
+  return THEMES[next];
 }
 
 (function initTheme() {
   applyTheme(currentTheme());
-  const btn = document.getElementById("theme-toggle");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    applyTheme(currentTheme() === "dark" ? "light" : "dark");
+  const group = document.querySelector(".theme-switch");
+  if (!group) return;
+  group.addEventListener("click", (event) => {
+    const btn = event.target.closest(".theme-swatch");
+    if (!btn) return;
+    applyTheme(btn.getAttribute("data-theme-choice"));
+  });
+  group.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const next = cycleTheme(event.key === "ArrowRight" ? 1 : -1);
+    const btn = group.querySelector('[data-theme-choice="' + next + '"]');
+    if (btn) btn.focus();
   });
 })();
 
@@ -1227,9 +1353,13 @@ window.addEventListener("hashchange", () => showPage(location.hash.slice(1)));
 showPage(location.hash.slice(1));
 
 document.addEventListener("keydown", (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
   const tag = (e.target && e.target.tagName) || "";
   if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (e.key === "t" || e.key === "T") {
+    cycleTheme(1);
+    return;
+  }
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= PAGES.length) location.hash = PAGES[n - 1];
 });

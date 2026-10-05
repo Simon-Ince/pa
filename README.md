@@ -1,10 +1,11 @@
 # PA Command Center
 
 A self-hosted, always-on personal dashboard for Simon. One FastAPI service
-serves both the API and a plain HTML/CSS/JS frontend — Swiss International
-Typographic Style (v5): Inter, black/white/Swiss red, a visible grid, no
-shadows — pulling from Gmail, Google Calendar, a message-triage cron
-snapshot, and TickTick.
+serves both the API and a plain HTML/CSS/JS frontend. The default look is
+still Swiss International Typographic Style (v5): Inter, black/white/Swiss
+red, a visible grid, no shadows. The header theme switcher also offers
+Night (the old dark mode), Bloom, and Lamp — see below. Data comes from
+Gmail, Google Calendar, a message-triage cron snapshot, and TickTick.
 
 ## Run it
 
@@ -13,10 +14,17 @@ cp .env.example .env   # adjust paths only if yours differ from the defaults
 docker compose up -d --build
 ```
 
-Then open **http://localhost:8420**. Theme toggle (square in the header) switches
-light/dark; choice is stored in `localStorage`. First visit follows the OS
-preference. Dark mode is a black canvas, charcoal panels, light type,
-white rules, and Swiss red for signal — not inverted white cards.
+Then open **http://localhost:8420**. The header has four theme swatches
+(Swiss, Night, Bloom, Lamp). Choice is stored in `localStorage` under
+`pa-theme`. First visit follows the OS preference: dark maps to Night,
+light to Swiss. `T` cycles themes; arrow keys move between swatches when
+one is focused. A saved `light` / `dark` value from the old toggle is
+read as Swiss / Night.
+
+Under the clock, one line says where the day actually is: the meeting
+you're in (or the next one), plus a count of decisions and overdue tasks
+when there are any. When the calendar, brief, and tasks have all loaded
+and nothing is waiting, it reads "Deck is clear" or "Done for today".
 
 Stop it:
 
@@ -245,10 +253,27 @@ logic; only the visual language changed:
   noise overlay on the light canvas (not on dark).
 - **Now/next** calendar rows invert to black fill / white type rather than
   yellow. Overdue/urgent use a 4px red leading rule.
-- **Header**: no product title — clock, theme toggle, and connection
-  status only.
-- **Dark mode**: black canvas, charcoal panels (`#141414`), light type,
+- **Header**: no product title — clock, the day line, theme swatches, and
+  connection status only.
+- **Night** (was dark mode): black canvas, charcoal panels, light type,
   white rules, same red accent. Not inverted white cards.
+
+## Themes
+
+All four themes are CSS variables on `html[data-theme]` in
+`backend/static/style.css`. Panel markup and data rendering do not change.
+Swiss red, Bloom's berry, and Lamp's persimmon stay signals (urgent,
+overdue, reconnecting), not decoration.
+
+- **Swiss** — the v5 default above.
+- **Night** — Swiss after dark.
+- **Bloom** — the rose room and lavender CRT. Page background `#d68b91`
+  is sampled from the reference still. Each panel is a monitor: deep
+  bezel (`#5c4a84`) over a warm screen, soft radius, a faint scanline on
+  the screen only. Section numbers use the bright button colours from
+  the bezel, where they stay readable.
+- **Lamp** — warm paper, walnut rules, Fraunces for the clock and panel
+  titles. The "clear" line and the connected dot go green.
 
 Landing-page scale from the style brief (`text-9xl`, lucide-react, full
 card hover-to-red) is intentionally not applied — this is a glance
