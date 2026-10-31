@@ -723,35 +723,99 @@ function renderProjects(vaultNotes) {
   );
 }
 
-function renderOnlinePresence(onlinePresence) {
+function relDays(iso) {
+  const d = parseIso(iso);
+  if (!d) return "";
+  const days = Math.round((Date.now() - d.getTime()) / 86400000);
+  if (days <= 0) return timeAgo(iso);
+  return days === 1 ? "yesterday" : `${days}d ago`;
+}
+
+function fmtDay(iso) {
+  const d = parseIso(iso);
+  return d ? d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
+}
+
+function renderOnlinePresence(p) {
   const statusEl = document.getElementById("presence-status");
   const listEl = document.getElementById("presence-list");
   if (!statusEl || !listEl) return;
 
-  if (onlinePresence.status === "error" || onlinePresence.status === "missing") {
+  if (p.status === "error" || p.status === "missing") {
     statusEl.textContent = "unavailable";
     statusEl.classList.add("error");
-    setHtml(listEl, `<div class="empty-state">Online presence note not found.</div>`);
+    setHtml(listEl, `<div class="empty-state">Career &amp; Presence notes not found.</div>`);
     return;
   }
   statusEl.classList.remove("error");
-  const pending = onlinePresence.pending_drafts || [];
-  statusEl.textContent = `${pending.length} pending`;
+
+  const drafts = p.drafts_waiting || [];
+  const opps = (p.opportunities && p.opportunities.open) || [];
+  const attention = p.attention_count != null ? p.attention_count : drafts.length;
+  statusEl.textContent = attention ? `${attention} need you` : "all quiet";
 
   let html = "";
-  if (onlinePresence.last_posted) {
-    html += `<div class="list-group-label">Last posted</div>`;
-    html += `<div class="triage-item"><span class="triage-summary">${escapeHtml(onlinePresence.last_posted)}</span></div>`;
-  }
-  if (pending.length) {
-    html += `<div class="list-group-label">Pending</div>`;
-    html += pending
-      .map((p) => `<div class="triage-item"><span class="triage-summary">${escapeHtml(p)}</span></div>`)
+
+  // Drafts waiting on Simon
+  html += `<div class="list-group-label">Drafts waiting on you</div>`;
+  if (drafts.length) {
+    html += drafts
+      .map((d) => `
+        <div class="triage-item">
+          <div class="triage-tags">
+            <span class="triage-source">${escapeHtml(d.label)}</span>
+            ${d.age_days != null && d.age_days > 7 ? `<span class="urgency-badge urgency-waiting">${d.age_days}d old</span>` : ""}
+          </div>
+          <span class="triage-summary">${escapeHtml(d.topics)}</span>
+        </div>`)
       .join("");
+  } else {
+    html += `<div class="empty-state">Nothing new waiting.</div>`;
   }
-  if (!html) {
-    html = `<div class="empty-state">Nothing tracked yet.</div>`;
+  if (p.drafts_stale) {
+    const since = p.drafts_stale_oldest ? ` since ${fmtDay(p.drafts_stale_oldest)}` : "";
+    html += `<div class="triage-item"><span class="triage-summary">${p.drafts_stale} older batch${p.drafts_stale > 1 ? "es" : ""}${escapeHtml(since)} never reviewed. Skim or let them go.</span></div>`;
   }
+
+  // Opportunities
+  html += `<div class="list-group-label">Opportunities</div>`;
+  if (opps.length) {
+    html += opps
+      .map((o) => {
+        const due = o.deadline
+          ? `<span class="urgency-badge ${o.due_soon ? "urgency-urgent" : "urgency-waiting"}">${o.days_left === 0 ? "today" : o.days_left === 1 ? "tomorrow" : `${o.days_left}d`} · ${escapeHtml(fmtDay(o.deadline))}</span>`
+          : "";
+        const status = `<span class="urgency-badge ${o.status === "new" ? "urgency-action" : ""}">${escapeHtml(o.status)}</span>`;
+        const link = o.link
+          ? `<a class="urgency-badge urgency-reply" href="${escapeHtml(o.link)}" target="_blank" rel="noopener">open</a>`
+          : "";
+        return `
+        <div class="triage-item${o.due_soon ? " urgency-urgent" : ""}">
+          <div class="triage-tags">${status}${due}${link}</div>
+          <span class="triage-summary"><strong>${escapeHtml(o.title)}</strong>${o.why ? " — " + escapeHtml(o.why) : ""}</span>
+        </div>`;
+      })
+      .join("");
+  } else {
+    html += `<div class="empty-state">No open opportunities logged.</div>`;
+  }
+
+  // Machinery: email sweep + career profile's next run
+  const sweep = p.inbox_sweep || {};
+  const nextJob = (p.career_jobs || []).find((j) => j.enabled && j.next_run_at);
+  const bits = [];
+  if (sweep.status === "missing") bits.push(`<span class="urgency-badge urgency-urgent">email sweep never ran</span>`);
+  else if (sweep.generated_at) {
+    const old = Date.now() - new Date(sweep.generated_at).getTime() > 4 * 86400000;
+    bits.push(`<span class="urgency-badge ${sweep.status === "error" || old ? "urgency-urgent" : ""}">email sweep ${escapeHtml(relDays(sweep.generated_at))}${sweep.status === "error" ? " · errors" : ""}</span>`);
+  }
+  if (nextJob) bits.push(`<span class="urgency-badge">next: ${escapeHtml(nextJob.name.replace(/^Career & presence: /, ""))} ${escapeHtml(fmtDay(nextJob.next_run_at))}</span>`);
+  const links = [
+    p.opportunities_path ? `<a class="urgency-badge urgency-reply" href="${escapeHtml(obsidianUrl(p.opportunities_path))}">opportunities log</a>` : "",
+    p.note_path ? `<a class="urgency-badge urgency-reply" href="${escapeHtml(obsidianUrl(p.note_path))}">presence note</a>` : "",
+  ].join("");
+  html += `<div class="list-group-label">Behind the scenes</div><div class="triage-tags">${bits.join("")}${links}</div>`;
+
   setHtml(listEl, html);
 }
 
@@ -1246,7 +1310,7 @@ const FEEDS = [
   { key: "pipeline", label: "Pipeline status", ts: "generated_at", maxAge: 45 },
   { key: "vault_notes", label: "Vault notes", ts: "generated_at", maxAge: 45 },
   { key: "recent_meetings", label: "Recent meetings", ts: "generated_at", maxAge: 45 },
-  { key: "online_presence", label: "Online presence", ts: "generated_at", maxAge: 45 },
+  { key: "online_presence", label: "Career & presence", ts: "generated_at", maxAge: 45 },
   { key: "daily_brief", label: "Daily brief", ts: "generated_at", maxAge: 60 * 26 },
   { key: "slack_digest", label: "Slack digest", ts: "generated_at", maxAge: 60 * 20 },
   { key: "linear_digest", label: "Linear digest", ts: "generated_at", maxAge: 60 * 20 },
@@ -1320,8 +1384,10 @@ function renderBadges(state) {
   const unlogged = (state.recent_meetings && state.recent_meetings.unlogged_with_notes) || 0;
   setBadge("badge-meetings", unlogged || "", unlogged > 0);
 
-  const pending = (state.online_presence && state.online_presence.pending_drafts) || [];
-  setBadge("badge-projects", pending.length || "", false);
+  const op = state.online_presence || {};
+  const presenceAttention = op.attention_count != null ? op.attention_count : (op.pending_drafts || []).length;
+  const dueSoon = ((op.opportunities && op.opportunities.open) || []).some((o) => o.due_soon);
+  setBadge("badge-projects", presenceAttention || "", dueSoon);
 
   const unhealthy =
     FEEDS.filter((f) => feedHealth(state, f).level !== "ok").length + ((state.pipeline && state.pipeline.unhealthy) || 0);
